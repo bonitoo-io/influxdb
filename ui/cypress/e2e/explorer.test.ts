@@ -9,6 +9,7 @@ import {
   STRINGS_TITLE,
   STRINGS_TRIM,
 } from '../../src/shared/constants/fluxFunctions'
+import {fn} from "moment";
 
 const TYPE_DELAY = 0
 
@@ -54,11 +55,11 @@ describe('DataExplorer', () => {
       cy.get('.view-options').within(() => {
         cy.getByTestID('auto-input').within(() => {
           cy.getByTestID('input-field')
-            .click()
-            .type('{backspace}{backspace}')
+              .click()
+              .type('{backspace}{backspace}')
           cy.getByTestID('auto-input--custom').should(
-            'have.class',
-            'cf-select-group--option__active'
+              'have.class',
+              'cf-select-group--option__active'
           )
           cy.getByTestID('input-field--error').should('have.length', 1)
           cy.getByTestID('input-field').type('adfuiopbvmc')
@@ -71,8 +72,8 @@ describe('DataExplorer', () => {
       cy.get('.view-options').within(() => {
         cy.getByTestID('auto-input').within(() => {
           cy.getByTestID('input-field')
-            .click()
-            .type('{backspace}{backspace}3')
+              .click()
+              .type('{backspace}{backspace}3')
           cy.getByTestID('input-field--error').should('have.length', 0)
         })
       })
@@ -90,21 +91,21 @@ describe('DataExplorer', () => {
       cy.get('.view-options').within(() => {
         cy.getByTestID('grid--column').within(() => {
           cy.getByTestID('bin-size-input')
-            .clear()
-            .getByTestID('bin-size-input--error')
-            .should('have.length', 1)
+              .clear()
+              .getByTestID('bin-size-input--error')
+              .should('have.length', 1)
           cy.getByTestID('bin-size-input')
-            .type('{backspace}')
-            .getByTestID('bin-size-input--error')
-            .should('have.length', 1)
+              .type('{backspace}')
+              .getByTestID('bin-size-input--error')
+              .should('have.length', 1)
           cy.getByTestID('bin-size-input')
-            .type('4')
-            .getByTestID('bin-size-input--error')
-            .should('have.length', 1)
+              .type('4')
+              .getByTestID('bin-size-input--error')
+              .should('have.length', 1)
           cy.getByTestID('bin-size-input')
-            .type('{backspace}abcdefg')
-            .getByTestID('bin-size-input--error')
-            .should('have.length', 1)
+              .type('{backspace}abcdefg')
+              .getByTestID('bin-size-input--error')
+              .should('have.length', 1)
         })
       })
     })
@@ -113,10 +114,10 @@ describe('DataExplorer', () => {
       cy.get('.view-options').within(() => {
         cy.getByTestID('grid--column').within(() => {
           cy.getByTestID('bin-size-input')
-            .clear()
-            .type('{backspace}{backspace}5')
-            .getByTestID('bin-size-input--error')
-            .should('have.length', 0)
+              .clear()
+              .type('{backspace}{backspace}5')
+              .getByTestID('bin-size-input--error')
+              .should('have.length', 0)
         })
       })
     })
@@ -133,26 +134,26 @@ describe('DataExplorer', () => {
       cy.get('.view-options').within(() => {
         cy.getByTestID('auto-input--input').within(() => {
           cy.getByTestID('input-field')
-            .click()
-            .type('{backspace}')
-            .invoke('attr', 'type')
-            .should('equal', 'text')
-            .getByTestID('input-field--error')
-            .should('have.length', 1)
+              .click()
+              .type('{backspace}')
+              .invoke('attr', 'type')
+              .should('equal', 'text')
+              .getByTestID('input-field--error')
+              .should('have.length', 1)
           cy.getByTestID('input-field')
-            .click()
-            .type('{backspace}')
-            .invoke('val')
-            .should('equal', '')
-            .getByTestID('input-field--error')
-            .should('have.length', 1)
+              .click()
+              .type('{backspace}')
+              .invoke('val')
+              .should('equal', '')
+              .getByTestID('input-field--error')
+              .should('have.length', 1)
           cy.getByTestID('input-field')
-            .click()
-            .type('abcdefg')
-            .invoke('val')
-            .should('equal', '')
-            .getByTestID('input-field--error')
-            .should('have.length', 1)
+              .click()
+              .type('abcdefg')
+              .invoke('val')
+              .should('equal', '')
+              .getByTestID('input-field--error')
+              .should('have.length', 1)
         })
       })
     })
@@ -161,12 +162,12 @@ describe('DataExplorer', () => {
       cy.get('.view-options').within(() => {
         cy.getByTestID('auto-input--input').within(() => {
           cy.getByTestID('input-field')
-            .click()
-            .type('{backspace}11')
-            .invoke('val')
-            .should('equal', '11')
-            .getByTestID('input-field--error')
-            .should('have.length', 0)
+              .click()
+              .type('{backspace}11')
+              .invoke('val')
+              .should('equal', '11')
+              .getByTestID('input-field--error')
+              .should('have.length', 0)
         })
       })
     })
@@ -181,35 +182,35 @@ describe('DataExplorer', () => {
     it('can add prefix and suffix values', () => {
       cy.get('.view-options').within(() => {
         cy.getByTestID('prefix-input')
-          .click()
-          .type('mph')
-          .invoke('val')
-          .should('equal', 'mph')
-          .getByTestID('input-field--error')
-          .should('have.length', 0)
+            .click()
+            .type('mph')
+            .invoke('val')
+            .should('equal', 'mph')
+            .getByTestID('input-field--error')
+            .should('have.length', 0)
         cy.getByTestID('suffix-input')
-          .click()
-          .type('mph')
-          .invoke('val')
-          .should('equal', 'mph')
-          .getByTestID('input-field--error')
-          .should('have.length', 0)
+            .click()
+            .type('mph')
+            .invoke('val')
+            .should('equal', 'mph')
+            .getByTestID('input-field--error')
+            .should('have.length', 0)
       })
     })
     it('can add and remove tick values', () => {
       cy.get('.view-options').within(() => {
         cy.getByTestID('tickprefix-input')
-          .click()
-          .invoke('val')
-          .should('equal', '')
-          .getByTestID('input-field--error')
-          .should('have.length', 0)
+            .click()
+            .invoke('val')
+            .should('equal', '')
+            .getByTestID('input-field--error')
+            .should('have.length', 0)
         cy.getByTestID('ticksuffix-input')
-          .click()
-          .invoke('val')
-          .should('equal', '')
-          .getByTestID('input-field--error')
-          .should('have.length', 0)
+            .click()
+            .invoke('val')
+            .should('equal', '')
+            .getByTestID('input-field--error')
+            .should('have.length', 0)
       })
     })
   })
@@ -218,15 +219,15 @@ describe('DataExplorer', () => {
     it('can select different time ranges', () => {
       // find initial value
       cy.get('.cf-dropdown--selected')
-        .contains('Past 1')
-        .should('have.length', 1)
+          .contains('Past 1')
+          .should('have.length', 1)
       cy.getByTestID('timerange-popover--dialog').should('not.exist')
       cy.getByTestID('timerange-dropdown').click()
 
       cy.getByTestID('dropdown-item-past15m').click()
       cy.get('.cf-dropdown--selected')
-        .contains('Past 15m')
-        .should('have.length', 1)
+          .contains('Past 15m')
+          .should('have.length', 1)
 
       cy.getByTestID('timerange-dropdown').click()
 
@@ -247,20 +248,20 @@ describe('DataExplorer', () => {
         // TODO: complete with issue #15632
         // https://github.com/influxdata/influxdb/issues/15632
         cy.get('input[title="Start"]')
-          .should('have.length', 1)
-          .clear()
-          .type('2019-10-31')
+            .should('have.length', 1)
+            .clear()
+            .type('2019-10-31')
 
         cy.get('input[title="Stop"]')
-          .should('have.length', 1)
-          .clear()
-          .type('2019-10-29')
+            .should('have.length', 1)
+            .clear()
+            .type('2019-10-29')
 
         // click button and see if time range has been selected
         cy.get('.cf-button--label')
-          .contains('Apply Time Range')
-          .should('have.length', 1)
-          .click()
+            .contains('Apply Time Range')
+            .should('have.length', 1)
+            .click()
 
         // TODO: complete test once functionality is fleshed out
 
@@ -277,9 +278,9 @@ describe('DataExplorer', () => {
 
         // type incomplete input
         cy.get('input[title="Start"]')
-          .should('have.length', 1)
-          .clear()
-          .type('2019-10')
+            .should('have.length', 1)
+            .clear()
+            .type('2019-10')
 
         // invalid date errors
         cy.getByTestID('input-error').should('have.length', 1)
@@ -292,18 +293,18 @@ describe('DataExplorer', () => {
 
         // type invalid stop date
         cy.get('input[title="Stop"]')
-          .should('have.length', 1)
-          .clear()
-          .type('2019-10-')
+            .should('have.length', 1)
+            .clear()
+            .type('2019-10-')
 
         // invalid date errors
         cy.getByTestID('input-error').should('have.length', 1)
 
         // try submitting invalid date
         cy.get('.cf-button--label')
-          .contains('Apply Time Range')
-          .should('have.length', 1)
-          .click()
+            .contains('Apply Time Range')
+            .should('have.length', 1)
+            .click()
 
         // TODO: complete test once functionality is fleshed out
 
@@ -315,24 +316,24 @@ describe('DataExplorer', () => {
       it('can set a custom time range', () => {
         // set the start and stop dates
         cy.get('input[title="Start"]')
-          .should('have.length', 1)
-          .clear()
-          .type('2019-10-01')
+            .should('have.length', 1)
+            .clear()
+            .type('2019-10-01')
 
         cy.get('input[title="Stop"]')
-          .should('have.length', 1)
-          .clear()
-          .type('2019-10-31')
+            .should('have.length', 1)
+            .clear()
+            .type('2019-10-31')
 
         // click button and see if time range has been selected
         cy.get('.cf-button--label')
-          .contains('Apply Time Range')
-          .should('have.length', 1)
-          .click()
+            .contains('Apply Time Range')
+            .should('have.length', 1)
+            .click()
 
         cy.get('.cf-dropdown--selected')
-          .contains('2019-10-01 00:00 - 2019-10-31 00:00')
-          .should('have.length', 1)
+            .contains('2019-10-01 00:00 - 2019-10-31 00:00')
+            .should('have.length', 1)
       })
     })
   })
@@ -358,17 +359,17 @@ describe('DataExplorer', () => {
 
       // can revert back to query builder mode (with confirmation)
       cy.getByTestID('switch-to-script-editor')
-        .should('be.visible')
-        .click()
+          .should('be.visible')
+          .click()
       cy.getByTestID('flux--aggregate.rate--inject').click()
       // check to see if import is defaulted to the top
       cy.get('.view-line')
-        .first()
-        .contains('import')
+          .first()
+          .contains('import')
       // check to see if new aggregate rate is at the bottom
       cy.get('.view-line')
-        .last()
-        .contains('aggregate.')
+          .last()
+          .contains('aggregate.')
       cy.getByTestID('flux-editor').should('exist')
       cy.getByTestID('flux-editor').within(() => {
         cy.get('textarea').type('yoyoyoyoyo', {force: true})
@@ -382,9 +383,9 @@ describe('DataExplorer', () => {
       cy.getByTestID('switch-query-builder-confirm--button').click()
 
       cy.getByTestID('switch-query-builder-confirm--popover--contents').within(
-        () => {
-          cy.getByTestID('switch-query-builder-confirm--confirm-button').click()
-        }
+          () => {
+            cy.getByTestID('switch-query-builder-confirm--confirm-button').click()
+          }
       )
 
       cy.getByTestID('query-builder').should('exist')
@@ -394,8 +395,8 @@ describe('DataExplorer', () => {
   describe('raw script editing', () => {
     beforeEach(() => {
       cy.getByTestID('switch-to-script-editor')
-        .should('be.visible')
-        .click()
+          .should('be.visible')
+          .click()
     })
 
     it('shows flux errors', () => {
@@ -423,10 +424,10 @@ describe('DataExplorer', () => {
 
       cy.getByTestID('flux-editor').within(() => {
         cy.get('.react-monaco-editor-container')
-          .should('be.visible')
-          .click()
-          .focused()
-          .type('yo', {force: true, delay: TYPE_DELAY})
+            .should('be.visible')
+            .click()
+            .focused()
+            .type('yo', {force: true, delay: TYPE_DELAY})
         cy.getByTestID('time-machine-submit-button').should('not.be.disabled')
       })
     })
@@ -434,25 +435,25 @@ describe('DataExplorer', () => {
     it('disables submit when a query is deleted', () => {
       cy.getByTestID('time-machine--bottom').then(() => {
         cy.get('.react-monaco-editor-container')
-          .should('be.visible')
-          .click()
-          .focused()
-          .type('from(bucket: "foo")', {force: true, delay: TYPE_DELAY})
+            .should('be.visible')
+            .click()
+            .focused()
+            .type('from(bucket: "foo")', {force: true, delay: TYPE_DELAY})
 
         cy.getByTestID('time-machine-submit-button').should('not.be.disabled')
 
         cy.get('.react-monaco-editor-container')
-          .should('be.visible')
-          .click()
-          .focused()
-          .type('{selectall} {backspace}', {force: true, delay: TYPE_DELAY})
+            .should('be.visible')
+            .click()
+            .focused()
+            .type('{selectall} {backspace}', {force: true, delay: TYPE_DELAY})
       })
 
       cy.getByTestID('time-machine-submit-button').should('be.disabled')
     })
 
     it('imports the appropriate packages to build a query', () => {
-      cy.getByTestID('functions-toolbar-tab').click()
+      //cy.getByTestID('functions-toolbar-tab').click()
 
       cy.getByTestID('flux--from--inject').click()
       cy.getByTestID('flux--range--inject').click()
@@ -479,7 +480,7 @@ describe('DataExplorer', () => {
     })
 
     it('can use the function selector to build a query', () => {
-      cy.getByTestID('functions-toolbar-tab').click()
+      //cy.getByTestID('functions-toolbar-tab').click()
 
       cy.getByTestID('flux--from--inject').click()
 
@@ -508,24 +509,24 @@ describe('DataExplorer', () => {
 
     it('can filter aggregation functions by name from script editor mode', () => {
       cy.getByTestID('input-field')
-        .clear() //TODO (zoe) when cypress resolves bug remove clear  https://github.com/cypress-io/cypress/issues/5480
-        .type('covariance')
-        .should('have.value', 'covariance')
+          .clear() //TODO (zoe) when cypress resolves bug remove clear  https://github.com/cypress-io/cypress/issues/5480
+          .type('covariance')
+          .should('have.value', 'covariance')
       cy.get('.flux-toolbar--list-item').should('have.length', 1)
     })
 
     it('shows the empty state when the query returns no results', () => {
       cy.getByTestID('time-machine--bottom').within(() => {
         cy.get('.react-monaco-editor-container')
-          .should('be.visible')
-          .click()
-          .focused()
-          .type(
-            `from(bucket: "defbuck"{rightarrow}
+            .should('be.visible')
+            .click()
+            .focused()
+            .type(
+                `from(bucket: "defbuck"{rightarrow}
   |> range(start: -10s{rightarrow}
   |> filter(fn: (r{rightarrow} => r._measurement == "no exist"{rightarrow}`,
-            {force: true, delay: TYPE_DELAY}
-          )
+                {force: true, delay: TYPE_DELAY}
+            )
         cy.getByTestID('time-machine-submit-button').click()
       })
 
@@ -537,15 +538,15 @@ describe('DataExplorer', () => {
       // begin flux
       cy.getByTestID('flux-editor').within(() => {
         cy.get('.react-monaco-editor-container')
-          .should('be.visible')
-          .click()
-          .focused()
-          .type(
-            `from(bucket: "defbuck"{rightarrow}
+            .should('be.visible')
+            .click()
+            .focused()
+            .type(
+                `from(bucket: "defbuck"{rightarrow}
   |> range(start: -15m, stop: now({rightarrow}{rightarrow}
   |> filter(fn: (r{rightarrow} => r._measurement ==`,
-            {force: true, delay: TYPE_DELAY}
-          )
+                {force: true, delay: TYPE_DELAY}
+            )
       })
 
       cy.getByTestID('toolbar-tab').click()
@@ -555,10 +556,10 @@ describe('DataExplorer', () => {
       cy.getByTestID('variable--windowPeriod')
       //insert variable name by clicking on variable
       cy.get('.flux-toolbar--variable')
-        .first()
-        .within(() => {
-          cy.contains('Inject').click()
-        })
+          .first()
+          .within(() => {
+            cy.contains('Inject').click()
+          })
 
       cy.getByTestID('save-query-as').click()
       cy.getByTestID('task--radio-button').click()
@@ -567,9 +568,14 @@ describe('DataExplorer', () => {
       cy.getByTestID('task-form-save').click()
 
       cy.getByTestID(`task-card`)
-        .should('exist')
-        .should('contain', taskName)
+          .should('exist')
+          .should('contain', taskName)
     })
+
+
+    it
+
+
   })
 
   describe('query builder', () => {
@@ -590,17 +596,17 @@ describe('DataExplorer', () => {
       cy.get('.time-machine-queries--new').click()
       cy.get('.query-tab').should('have.length', 2)
       cy.get('.query-tab--close')
-        .first()
-        // Element is only visible on hover, using force to make this test pass
-        .click({force: true})
+          .first()
+          // Element is only visible on hover, using force to make this test pass
+          .click({force: true})
       cy.get('.query-tab').should('have.length', 1)
     })
 
     it('can remove a second query using tab context menu', () => {
       cy.get('.query-tab').trigger('contextmenu')
       cy.getByTestID('right-click--remove-tab').should(
-        'have.class',
-        'cf-right-click--menu-item__disabled'
+          'have.class',
+          'cf-right-click--menu-item__disabled'
       )
 
       // Fire a click outside of the right click menu to dismiss it because
@@ -611,8 +617,8 @@ describe('DataExplorer', () => {
       cy.get('.query-tab').should('have.length', 2)
 
       cy.get('.query-tab')
-        .first()
-        .trigger('contextmenu')
+          .first()
+          .trigger('contextmenu')
       cy.getByTestID('right-click--remove-tab').click()
 
       cy.get('.query-tab').should('have.length', 1)
@@ -635,9 +641,9 @@ describe('DataExplorer', () => {
             cy.getByTestID('empty-graph--error').should('exist')
           })
           cy.get('.react-monaco-editor-container')
-            .click()
-            .focused()
-            .type('from(', {force: true, delay: 2})
+              .click()
+              .focused()
+              .type('from(', {force: true, delay: 2})
           cy.getByTestID('time-machine-submit-button').click()
         })
       })
@@ -684,22 +690,22 @@ describe('DataExplorer', () => {
         cy.getByTestID('time-machine-submit-button').click()
         cy.getByTestID('cog-cell--button').click()
         cy.getByTestID('select-group--option')
-          .contains('Custom')
-          .click()
+            .contains('Custom')
+            .click()
         cy.getByTestID('auto-domain--min')
-          .type('-100')
-          .blur()
+            .type('-100')
+            .blur()
 
         cy.getByTestID('form--element-error').should('not.exist')
         // find no errors
         cy.getByTestID('auto-domain--max')
-          .type('450')
-          .blur()
+            .type('450')
+            .blur()
         // find no errors
         cy.getByTestID('form--element-error').should('not.exist')
         cy.getByTestID('auto-domain--min')
-          .clear()
-          .blur()
+            .clear()
+            .blur()
         cy.getByTestID('form--element-error').should('not.exist')
       })
 
@@ -718,20 +724,20 @@ describe('DataExplorer', () => {
         cy.get('.table-graph-cell__sort-asc').should('not.exist')
         cy.get('.table-graph-cell__sort-desc').should('not.exist')
         cy.getByTestID('_value-table-header')
-          .should('exist')
-          .then(el => {
-            // get the column index
-            const columnIndex = el[0].getAttribute('data-column-index')
-            let prev = -Infinity
-            // get all the column values for that one and see if they are in order
-            cy.get(`[data-column-index="${columnIndex}"]`).each(val => {
-              const num = Number(val.text())
-              if (isNaN(num) === false) {
-                expect(num > prev).to.equal(true)
-                prev = num
-              }
+            .should('exist')
+            .then(el => {
+              // get the column index
+              const columnIndex = el[0].getAttribute('data-column-index')
+              let prev = -Infinity
+              // get all the column values for that one and see if they are in order
+              cy.get(`[data-column-index="${columnIndex}"]`).each(val => {
+                const num = Number(val.text())
+                if (isNaN(num) === false) {
+                  expect(num > prev).to.equal(true)
+                  prev = num
+                }
+              })
             })
-          })
         cy.getByTestID('_value-table-header').click()
         cy.get('.table-graph-cell__sort-asc').should('exist')
         cy.getByTestID('_value-table-header').click()
@@ -767,18 +773,18 @@ describe('DataExplorer', () => {
 
         cy.get('.time-machine--view').within(() => {
           cy.get('.cf-dapper-scrollbars--thumb-y') // TODO(zoe): replace with test ids https://github.com/influxdata/clockface/issues/507
-            .trigger('mousedown', {force: true})
-            .trigger('mousemove', {clientY: 5000})
-            .trigger('mouseup')
+              .trigger('mousedown', {force: true})
+              .trigger('mousemove', {clientY: 5000})
+              .trigger('mouseup')
 
           cy.get('.cf-dapper-scrollbars--thumb-x') // TODO(zoe): replace with test ids https://github.com/influxdata/clockface/issues/507
-            .trigger('mousedown', {force: true})
-            .trigger('mousemove', {clientX: 1000})
-            .trigger('mouseup')
+              .trigger('mousedown', {force: true})
+              .trigger('mousemove', {clientX: 1000})
+              .trigger('mouseup')
         })
 
         cy.getByTestID(`raw-flux-data-table--cell ${numLines}`).should(
-          'be.visible'
+            'be.visible'
         )
       })
 
@@ -796,9 +802,9 @@ describe('DataExplorer', () => {
 
         cy.get('.time-machine--view').within(() => {
           cy.get('.cf-dapper-scrollbars--thumb-y') // TODO(zoe): replace with test ids https://github.com/influxdata/clockface/issues/507
-            .trigger('mousedown', {force: true})
-            .trigger('mousemove', {clientY: 5000})
-            .trigger('mouseup')
+              .trigger('mousedown', {force: true})
+              .trigger('mousemove', {clientY: 5000})
+              .trigger('mouseup')
         })
         cy.get(`[title="${numLines}"]`).should('be.visible')
       })
@@ -809,25 +815,121 @@ describe('DataExplorer', () => {
     beforeEach(() => {
       cy.fixture('routes').then(({orgs, explorer}) => {
         cy.get<Organization>('@org').then(({id}) => {
-          cy.visit(`${orgs}/${id}${explorer}/save`)
+          cy.visit(`${orgs}/${id}${explorer}`)
         })
       })
     })
 
     describe('as a task', () => {
+      const numLines = 360
       beforeEach(() => {
-        cy.getByTestID('task--radio-button').click()
+        // POST 360 lines to the server
+        cy.writeData(lines(numLines))
       })
 
+
       it('should autoselect the first bucket', () => {
+        cy.getByTestID('save-query-as').click()
+        cy.getByTestID('task--radio-button').click()
         cy.getByTestID('task-options-bucket-dropdown--button').within(() => {
           cy.get('span.cf-dropdown--selected').then(elem => {
             expect(elem.text()).to.include('defbuck')
           })
         })
       })
+
+
+      it('should save query as a task', () => {
+        cy.getByTestID(`selector-list m`).click()
+        cy.getByTestID('selector-list v').click()
+        cy.getByTestID(`selector-list tv1`).click()
+        cy.getByTestID('time-machine-submit-button').click()
+
+        cy.getByTestID('save-query-as').click()
+        cy.getByTestID('task--radio-button').click()
+        cy.getByTestID('task-form-name').clear().type("Save as task test")
+        cy.getByTestID('task-form-schedule-input').clear().type("4h")
+        cy.getByTestID('task-form-offset-input').clear().type("30m")
+        cy.getByTestID('task-form-save').click()
+        cy.getByTestID('nav-item-tasks').click()
+        cy.getByTestID('task-card--name').should('have.text', 'Save as task test')
+
+
+      })
+    })
+
+    describe('as a dahboard', () => {
+      const numLines = 360
+      beforeEach(() => {
+        // POST 360 lines to the server
+        cy.writeData(lines(numLines))
+      })
+
+      it('should save 2 queries in a new dashboard and both should be visible', function () {
+        cy.getByTestID(`selector-list m`).click()
+        cy.getByTestID('selector-list v').click()
+        cy.getByTestID(`selector-list tv1`).click()
+        cy.getByTestID('time-machine-submit-button').click()
+
+        cy.getByTestID('save-query-as').click()
+        cy.getByTestID('save-as-dashboard-cell--dropdown').click()
+        cy.getByTestID('save-as-dashboard-cell--create-new-dash').click()
+        cy.getByTestID('save-as-dashboard-cell--dashboard-name').clear().type("Save as dashboard test")
+        cy.getByTestID('save-as-dashboard-cell--cell-name').clear().type("Dashboard Cell #1")
+        cy.getByTestID('save-as-dashboard-cell--submit').click()
+
+        cy.getByTestID('nav-item-dashboards').click()
+        cy.url().should('include', '/dashboards')
+        cy.getByTestID('dashboard-card--name').contains('Save as dashboard test').click().wait(5000)
+        cy.getByTestID('cell Dashboard Cell #1').getByTestID('giraffe-layer-line')
+
+        cy.getByTestID('nav-item-data-explorer').click()
+        cy.getByTestID(`selector-list m`).click()
+        cy.getByTestID('selector-list v').click()
+        cy.getByTestID(`selector-list tv1`).click()
+        cy.getByTestID('time-machine-submit-button').click()
+
+        cy.getByTestID('save-query-as').click()
+        cy.getByTestID('save-as-dashboard-cell--dropdown').click()
+        cy.getByTestID('dropdown-item').contains('Save as dashboard test').click()
+        cy.getByTestID('save-as-dashboard-cell--dropdown').click()
+        cy.getByTestID('save-as-dashboard-cell--cell-name').type("Dashboard Cell #2")
+        cy.getByTestID('save-as-dashboard-cell--submit').click()
+
+        cy.getByTestID('nav-item-dashboards').click()
+        cy.url().should('include', '/dashboards')
+        cy.getByTestID('dashboard-card--name').contains('Save as dashboard test').click().wait(5000)
+        cy.getByTestID('cell Dashboard Cell #2').getByTestID('giraffe-layer-line')
+      })
+    });
+
+    describe('as a variable', () => {
+      const numLines = 360
+      beforeEach(() => {
+        // POST 360 lines to the server
+        cy.writeData(lines(numLines))
+      })
+
+      it('should save query as a variable', function () {
+        cy.getByTestID(`selector-list m`).click()
+        cy.getByTestID('selector-list v').click()
+        cy.getByTestID(`selector-list tv1`).click()
+        cy.getByTestID('time-machine-submit-button').click()
+
+        cy.getByTestID('save-query-as').click()
+        cy.getByTestID('variable-radio-button').click()
+        cy.getByTestID('form--validation-element').within(() => {
+          cy.get('.cf-input-field').clear().type('Save as variable test')
+        })
+        cy.get('.cf-button-success').click()
+        cy.getByTestID('nav-item-settings').click()
+        cy.getByTestID('resource-card variable').contains('Save as variable test')
+
+      })
+
     })
   })
+})
 
   // skipping until feature flag feature is removed for deleteWithPredicate
   describe.skip('delete with predicate', () => {
@@ -896,7 +998,7 @@ describe('DataExplorer', () => {
       // TODO: add filter values based on dropdown selection in key / value
     })
   })
-})
+
 
 const lines = (numLines = 3) => {
   // each line is 10 seconds before the previous line
