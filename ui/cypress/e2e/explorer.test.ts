@@ -880,7 +880,7 @@ describe('DataExplorer', () => {
 
         cy.getByTestID('nav-item-dashboards').click()
         cy.url().should('include', '/dashboards')
-        cy.getByTestID('dashboard-card--name').contains('Save as dashboard test').click().wait(5000)
+        cy.getByTestID('dashboard-card--name').contains('Save as dashboard test').click().wait(300)
         cy.getByTestID('cell Dashboard Cell #1').getByTestID('giraffe-layer-line')
 
         cy.getByTestID('nav-item-data-explorer').click()
@@ -898,7 +898,7 @@ describe('DataExplorer', () => {
 
         cy.getByTestID('nav-item-dashboards').click()
         cy.url().should('include', '/dashboards')
-        cy.getByTestID('dashboard-card--name').contains('Save as dashboard test').click().wait(5000)
+        cy.getByTestID('dashboard-card--name').contains('Save as dashboard test').click().wait(300)
         cy.getByTestID('cell Dashboard Cell #2').getByTestID('giraffe-layer-line')
       })
     });
