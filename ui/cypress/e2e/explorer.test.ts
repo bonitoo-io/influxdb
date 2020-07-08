@@ -9,7 +9,6 @@ import {
   STRINGS_TITLE,
   STRINGS_TRIM,
 } from '../../src/shared/constants/fluxFunctions'
-import {fn} from "moment";
 
 const TYPE_DELAY = 0
 
@@ -611,7 +610,7 @@ describe('DataExplorer', () => {
 
       // Fire a click outside of the right click menu to dismiss it because
       // it is obscuring the + button
-      cy.getByTestID('page-header').click()
+      cy.get('.cf-page-header').click()
 
       cy.get('.time-machine-queries--new').click()
       cy.get('.query-tab').should('have.length', 2)
@@ -875,13 +874,13 @@ describe('DataExplorer', () => {
         cy.getByTestID('save-as-dashboard-cell--dropdown').click()
         cy.getByTestID('save-as-dashboard-cell--create-new-dash').click()
         cy.getByTestID('save-as-dashboard-cell--dashboard-name').clear().type("Save as dashboard test")
-        cy.getByTestID('save-as-dashboard-cell--cell-name').clear().type("Dashboard Cell #1")
+        cy.getByTestID('save-as-dashboard-cell--cell-name').clear().type("Dashboard Cell 1")
         cy.getByTestID('save-as-dashboard-cell--submit').click()
 
         cy.getByTestID('nav-item-dashboards').click()
         cy.url().should('include', '/dashboards')
-        cy.getByTestID('dashboard-card--name').contains('Save as dashboard test').click().wait(300)
-        cy.getByTestID('cell Dashboard Cell #1').getByTestID('giraffe-layer-line')
+        cy.getByTestID('dashboard-card--name').contains('Save as dashboard test').click()
+        cy.getByTestID('cell Dashboard Cell 1').getByTestID('giraffe-layer-line')
 
         cy.getByTestID('nav-item-data-explorer').click()
         cy.getByTestID(`selector-list m`).click()
@@ -893,13 +892,13 @@ describe('DataExplorer', () => {
         cy.getByTestID('save-as-dashboard-cell--dropdown').click()
         cy.getByTestID('dropdown-item').contains('Save as dashboard test').click()
         cy.getByTestID('save-as-dashboard-cell--dropdown').click()
-        cy.getByTestID('save-as-dashboard-cell--cell-name').type("Dashboard Cell #2")
+        cy.getByTestID('save-as-dashboard-cell--cell-name').type("Dashboard Cell 2")
         cy.getByTestID('save-as-dashboard-cell--submit').click()
 
         cy.getByTestID('nav-item-dashboards').click()
         cy.url().should('include', '/dashboards')
-        cy.getByTestID('dashboard-card--name').contains('Save as dashboard test').click().wait(300)
-        cy.getByTestID('cell Dashboard Cell #2').getByTestID('giraffe-layer-line')
+        cy.getByTestID('dashboard-card--name').contains('Save as dashboard test').click()
+        cy.getByTestID('cell Dashboard Cell 2').getByTestID('giraffe-layer-line')
       })
     });
 
