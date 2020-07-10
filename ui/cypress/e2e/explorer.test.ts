@@ -880,7 +880,10 @@ describe('DataExplorer', () => {
         cy.getByTestID('nav-item-dashboards').click()
         cy.url().should('include', '/dashboards')
         cy.getByTestID('dashboard-card--name').contains('Save as dashboard test').click()
-        cy.getByTestID('cell Dashboard Cell 1').getByTestID('giraffe-layer-line')
+        //cy.getByTestID('cell Dashboard Cell 1').getByTestID('giraffe-layer-line')
+        cy.get('.react-grid-item').eq(0).then(() => {
+          cy.getByTestID('giraffe-layer-line')
+        })
 
         cy.getByTestID('nav-item-data-explorer').click()
         cy.getByTestID(`selector-list m`).click()
@@ -898,7 +901,10 @@ describe('DataExplorer', () => {
         cy.getByTestID('nav-item-dashboards').click()
         cy.url().should('include', '/dashboards')
         cy.getByTestID('dashboard-card--name').contains('Save as dashboard test').click()
-        cy.getByTestID('cell Dashboard Cell 2').getByTestID('giraffe-layer-line')
+        //cy.getByTestID('cell Dashboard Cell 2').getByTestID('giraffe-layer-line')
+        cy.get('.react-grid-item').eq(0).then(() => {
+          cy.getByTestID('giraffe-layer-line')
+        })
       })
     });
 
