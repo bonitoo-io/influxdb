@@ -199,6 +199,16 @@ jobs:
           path: ~/e2e/test-results
       - store_artifacts:
           path: ~/e2e/artifacts
+  selenium_idpe:
+    machine: true
+    steps:
+      - checkout
+      - run:
+          name: Build test image
+          command: |
+            set +e
+            cd e2e
+            docker build -t e2e-cloud-sanity -f scripts/Dockerfile.cloud .      
   jstest:
     docker:
       - image: circleci/golang:1.13-node-browsers
@@ -501,6 +511,12 @@ workflows:
                 - master
     jobs:
       - e2e
+  idpe-test-prep:
+    jobs:
+      - selenium_idpe:
+          filters:
+            branches:
+              only: /^idpe.*/
   nightly:
     triggers:
       - schedule:
