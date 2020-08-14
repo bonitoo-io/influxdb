@@ -208,6 +208,7 @@ jobs:
           command: |
             set +e
             cd e2e
+            echo DOKER_USERNAME_KR "#${DOKER_USERNAME_KR}#"
             docker build -t e2e-cloud-sanity -f scripts/Dockerfile.cloud .      
   jstest:
     docker:
