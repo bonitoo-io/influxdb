@@ -208,8 +208,11 @@ jobs:
           command: |
             set +e
             cd e2e
-            echo DOKER_USERNAME_KR ${DOKER_USERNAME_KR}
-            docker build -t e2e-cloud-sanity -f scripts/Dockerfile.cloud .      
+            echo DOCKER_KR_USERNAME ${DOCKER_KR_USERNAME}
+            echo DOCKER_KR_TOKEN ${DOCKER_KR_TOKEN}
+            docker build -t karelrehor/e2e-cloud-sanity -f scripts/Dockerfile.cloud .      
+            echo ${DOCKER_KR_TOKEN} | docker login --username ${DOCKER_KR_USERNAME} --password-stdin
+            docker push karelrehor/e2e-cloud-sanity
   jstest:
     docker:
       - image: circleci/golang:1.13-node-browsers
