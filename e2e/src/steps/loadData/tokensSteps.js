@@ -135,7 +135,7 @@ class tokensSteps extends baseSteps{
         for(let i = 0; i < buckArr.length; i++){
             await this.verifyElementContainsClass(
                 await this.tknTab.getSearchBucketsListItem(mode, buckArr[i]),
-                'selected');
+                'cf-list-item__active');
         }
     }
 
@@ -144,7 +144,7 @@ class tokensSteps extends baseSteps{
         for(let i = 0; i < buckArr.length; i++){
             await this.verifyElementDoesNotContainClass(
                 await this.tknTab.getSearchBucketsListItem(mode, buckArr[i]),
-                'selected');
+                'cf-list-item__active');
         }
     }
 
