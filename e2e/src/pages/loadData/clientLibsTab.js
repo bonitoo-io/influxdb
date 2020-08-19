@@ -1,7 +1,7 @@
 const { By } = require('selenium-webdriver');
 const loadDataPage = require(__srcdir + '/pages/loadData/loadDataPage.js');
 
-const libTileByName = '[data-testid=\'client-libraries-cards--%NAME%\']';
+const libTileByName = '[data-testid=\'load-data-item %NAME%\']';
 const clientURL = '[data-testid=tabs--tab-contents] .code-snippet code';
 const copy2ClipByLabel = '//*[text() = \'%LABEL%\']/following-sibling::div[1]//button';
 
