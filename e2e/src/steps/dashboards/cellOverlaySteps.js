@@ -330,7 +330,7 @@ class cellOverlaySteps extends influxSteps {
     async verifyItemSelectedInBuilderCard(index, item){
         let card = await this.cellOverlay.getTMBuilderCardByIndex(parseInt(index));
         await this.verifyElementContainsClass(await card.findElement(By.css(`[data-testid='selector-list ${item.trim()}']`)),
-            'selected');
+            'cf-list-item__active');
 
     }
 
