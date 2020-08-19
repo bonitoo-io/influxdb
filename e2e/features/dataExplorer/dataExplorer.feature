@@ -9,6 +9,7 @@ Feature: Data explorer
     When open the signin page
     When UI sign in user "DEFAULT"
     When click nav menu item "LoadData"
+    When click load data tab "Buckets"
     Then the buckets tab is loaded
     When click the Create Bucket button
     Then the Create Bucket Popup is loaded

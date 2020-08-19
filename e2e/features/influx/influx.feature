@@ -55,7 +55,8 @@ Feature: Influx common
     #Then the menu item text "Telegraf" is "visible"
     #Then the menu item text "Scrapers" is "visible"
     When click nav menu item "LoadData"
-    Then the buckets tab is loaded
+    Then the load data context is loaded
+    Then the sources tab is loaded
 
   Scenario: Click Settings
     #Then the menu item text "Settings" is "hidden"

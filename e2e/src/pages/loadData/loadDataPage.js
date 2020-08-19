@@ -5,7 +5,7 @@ const tabsCss = '[data-testid=tabs]';
 const tabsXpath = '//*[@data-testid=\'tabs\']';
 const pageTitle = '[data-testid=\'page-title\']';
 
-const urlCtx = 'settings';
+const urlCtx = 'load-data';
 
 //Create Scraper Popup - accessible in both Scraper Page and base LoadData page - through buckets add data
 const createScraperTitle = '[data-testid=overlay--header] [class*=title]';

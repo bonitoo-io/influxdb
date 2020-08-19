@@ -54,13 +54,13 @@ const TMEmptyGraphErrMessage = '.empty-graph-error pre';
 const TMDownloadCSV = '[data-testid=button][title*=\'CSV\']';
 
 //Query builder
-const TMQBSelectedBucket = '[data-testid=bucket-selector] [data-testid^=\'selector-list\'][class*=selected]';
-const TMQBSelectedTagOfCard = '//*[@data-testid=\'builder-card\'][.//*[@data-testid=\'tag-selector--container %INDEX%\']]//*[contains(@data-testid,\'selector-list\')][contains(@class,\'selected\')]';
+const TMQBSelectedBucket = '[data-testid=bucket-selector] [data-testid^=\'selector-list\'][class*=active]';
+const TMQBSelectedTagOfCard = '//*[@data-testid=\'builder-card\'][.//*[@data-testid=\'tag-selector--container %INDEX%\']]//*[contains(@data-testid,\'selector-list\')][contains(@class,\'cf-list-item__active\')]';
 const TMBuilderCardMenuDurationInput = '[data-testid=\'duration-input\']';
 const TMBuilderCardMenuFunctionListItem = '[data-testid=\'selector-list %ITEM%\']';
 const TMBuilderCardMenuFunctionFilter = '[data-testid=\'input-field\'][placeholder*=\'functions\']';
 const TMBuilderCardMenuFunctionListItems = '[data-testid=function-selector] [data-testid^=\'selector-list\']';
-const TMQBSelectedFunctionsByName = '[data-testid=\'selector-list %NAME%\'].selected';
+const TMQBSelectedFunctionsByName = '[data-testid=\'selector-list %NAME%\'].cf-list-item__active';
 const TMQBDurationSuggestions = '[data-testid=\'dropdown-menu--contents\'] [data-testid=\'dropdown-item\']';
 const TMQBDurationSuggestionByName = '//*[@data-testid=\'dropdown-menu--contents\']//*[@data-testid=\'dropdown-item\'][./*[text()=\'%NAME%\']]';
 const TMBuilderTabsAddQuery = '[data-testid=overlay] [class=time-machine-queries--tabs] [data-testid=square-button]';
