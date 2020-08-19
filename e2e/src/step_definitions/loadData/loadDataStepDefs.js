@@ -1,5 +1,6 @@
 import { Then, When } from 'cucumber';
 const bucketsSteps = require(__srcdir + '/steps/loadData/bucketsSteps.js');
+const sourcesSteps = require(__srcdir + '/steps/loadData/sourcesSteps.js');
 const telegrafsSteps = require(__srcdir + '/steps/loadData/telegrafsSteps.js');
 const scrapersSteps = require(__srcdir + '/steps/loadData/scrapersSteps.js');
 const loadDataSteps = require(__srcdir + '/steps/loadData/loadDataSteps.js');
@@ -8,9 +9,18 @@ let bktTabSteps = new bucketsSteps(__wdriver);
 let teleTabSteps = new telegrafsSteps(__wdriver);
 let scrTabSteps = new scrapersSteps(__wdriver);
 let ldSteps = new loadDataSteps(__wdriver);
+let souSteps = new sourcesSteps(__wdriver);
+
+Then(/^the load data context is loaded$/, async() => {
+   await ldSteps.isLoaded();
+});
 
 Then(/^the buckets tab is loaded$/, {timeout: 2 * 5000}, async() => {
     await bktTabSteps.isLoaded();
+});
+
+Then(/^the sources tab is loaded$/, async() => {
+    await souSteps.isLoaded();
 });
 
 Then(/^the Telegraf Tab is loaded$/, {timeout: 2 * 5000}, async() => {
