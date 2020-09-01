@@ -15,7 +15,7 @@ Feature: Home Page
 
   Scenario: Click Data Collector Panel
     When I click the panel "Data Collector"
-    Then the Telegraf Tab is loaded
+    Then the sources tab is loaded
 
 @tested
   Scenario: Check Dashboards Panel
