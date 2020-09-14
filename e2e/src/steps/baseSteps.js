@@ -685,12 +685,14 @@ class baseSteps{
             deck[target] = temp;
         }
 
-        let file = await influxUtils.getNthFileFromRegex(path, 1);
-        let content = await influxUtils.readFileToBuffer(file);
-        let firstLF = content.indexOf('\n');
-        let firstLine = content.slice(0,firstLF);
+        try {
+            let file = await influxUtils.getNthFileFromRegex(path, 1);
+            let content = await influxUtils.readFileToBuffer(file);
+            let firstLF = content.indexOf('\n');
+            let firstLine = content.slice(0, firstLF);
 
-        assert.match(firstLine.trim(),/^#group,.*$/);
+            assert.match(firstLine.trim(),/^#group,.*$/);
+
 
         let csvContent = await influxUtils.readCSV(content);
 
@@ -718,6 +720,12 @@ class baseSteps{
                 }
             })
         }
+        }catch(err){
+            console.log("Caught Err: " + JSON.stringify(err));
+            console.log("path: " + path);
+            throw err;
+        }
+
     }
 
     async scrollElementIntoView(elem){
