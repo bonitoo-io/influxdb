@@ -12,7 +12,7 @@ let iSteps = new influxSteps(__wdriver);
 Given(/^I reset the environment$/, async () => {
     await bSteps.driver.sleep(1000); //since gets called after scenarios, need a short delay to avoid promise resolution issues
     await bSteps.resetEnvironment();
-    //await flush();
+    await bSteps.driver.sleep(1000); //can sometimes be slow to flush
 });
 
 /*
