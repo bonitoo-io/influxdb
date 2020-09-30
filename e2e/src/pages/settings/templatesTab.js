@@ -24,6 +24,11 @@ const importTemplateJSONTextArea = '[data-testid=overlay--body] [data-testid=imp
 const importTemplateDragNDrop = '[data-testid=overlay--body] input[type=file]';
 const importTemplateSubmitButton = '[data-testid=\'submit-button Template\']';
 
+//New Templates Tab 25.9.20
+const browseTemplateButton = '[data-testid=\'browse-template-button\']';
+const lookupTemplateInput = '[data-testid=\'lookup-template-input\']';
+const lookupTemplateButton = '[data-testid=\'lookup-template-button\']';
+
 class templatesTab extends settingsPage{
 
     constructor(driver){
@@ -33,11 +38,14 @@ class templatesTab extends settingsPage{
     async isTabLoaded(){
         await super.isTabLoaded(urlCtx,
             [
-                {type: 'css', selector: templatesFilter},
-                {type: 'xpath', selector: importTemplateHeaderButton},
-                {type: 'css', selector: sortTypeButton},
-                {type: 'css', selector: templatesTypeFilterButton},
-                {type: 'css', selector: resourceList},
+                {type: 'css', selector: browseTemplateButton},
+                {type: 'css', selector: lookupTemplateInput},
+                {type: 'css', selector: lookupTemplateButton}
+               // {type: 'css', selector: templatesFilter},
+               // {type: 'xpath', selector: importTemplateHeaderButton},
+               // {type: 'css', selector: sortTypeButton},
+               // {type: 'css', selector: templatesTypeFilterButton},
+               // {type: 'css', selector: resourceList},
             ]
         );
     }

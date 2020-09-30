@@ -1,5 +1,6 @@
 @feature-settings
 @settings-templates
+@deprecated
 Feature: Settings - Templates
   As a user I want to Read Create Update and Delete Templatess
   So that I can eventually use them to create dashboards in Influxdbv2
