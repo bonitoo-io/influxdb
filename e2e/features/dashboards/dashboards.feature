@@ -189,7 +189,8 @@ Feature: Dashboards - Base
 
 @tested
   Scenario: Create Dashboard from template
-    When create a new template from the file "etc/test-data/sine-test-template.json" for user "DEFAULT"
+    # N.B. 19.11.20 - locally uploaded templates no longer supported
+    #When create a new template from the file "etc/test-data/sine-test-template.json" for user "DEFAULT"
     When click nav menu item "Dashboards"
     #When hover over the "Dashboards" menu item
     #When click nav sub menu "Dashboards"
@@ -206,43 +207,44 @@ Feature: Dashboards - Base
     Then popup is not loaded
     When click create dashboard control
     When click the create dashboard item "From a Template"
-    When click the template item "Sinusoid test data-Template"
-    Then the template preview cell "Beat goes on" is visible
+    When click the template item "System"
+    #Then the template preview cell "Beat goes on" is visible
     When click Dashboard from Template create button
-    Then there is a dashboard card named "Sinusoid test data"
+    Then there is a dashboard card named "System"
 
 @tested
   Scenario: Sort Dashboards by Name
     When close all notifications
     Then the dashboards are sorted as:
     """
-    Alpha Centauri,Jupiter,Mars,Mercure,Sinusoid test data,Tau Ceti,Terre,Venus
+    Alpha Centauri,Jupiter,Mars,Mercure,System,Tau Ceti,Terre,Venus
     """
     When click dashboards sort type dropdown
     When click dashboards sort by "Name Desc"
     #When click dashboards sort by name
     Then the dashboards are sorted as:
     """
-    Venus,Terre,Tau Ceti,Sinusoid test data,Mercure,Mars,Jupiter,Alpha Centauri
+    Venus,Terre,Tau Ceti,System,Mercure,Mars,Jupiter,Alpha Centauri
     """
     When click dashboards sort type dropdown
     When click dashboards sort by "Name Asc"
     Then the dashboards are sorted as:
     """
-    Alpha Centauri,Jupiter,Mars,Mercure,Sinusoid test data,Tau Ceti,Terre,Venus
+    Alpha Centauri,Jupiter,Mars,Mercure,System,Tau Ceti,Terre,Venus
     """
   # Scenario: Sort Dashboards by Modified time
   # TODO - implement after issue #15610 is resolved
 
-@error-collateral
-  Scenario: Export Dashboard as Template
-    When hover over dashboard card named "Alpha Centauri"
-    When click export of the dashboard card named "Alpha Centauri"
-    When click confirm export of the dashboard card "Alpha Centauri"
-    When click Export Dashboard popup Save as Template
-    Then the success notification contains "Successfully saved dashboard as template"
-    Then a REST template document for user "DEFAULT" titled "Alpha Centauri-Template" exists
-    Then close all notifications
+# Case no longer applies
+#@error-collateral
+#  Scenario: Export Dashboard as Template
+#    When hover over dashboard card named "Alpha Centauri"
+#    When click export of the dashboard card named "Alpha Centauri"
+#    When click confirm export of the dashboard card "Alpha Centauri"
+#    When click Export Dashboard popup Save as Template
+#    Then the success notification contains "Successfully saved dashboard as template"
+#    Then a REST template document for user "DEFAULT" titled "Alpha Centauri-Template" exists
+#    Then close all notifications
 
 @error-collateral
   Scenario: Export Dashboard copy to clipboard
@@ -306,4 +308,4 @@ Feature: Dashboards - Base
       |Alpha Centauri|
       |Tau Ceti|
       |Tau Ceti (clone 1)|
-      |Sinusoid test data|
+      |System|
