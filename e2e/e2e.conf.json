@@ -12,7 +12,7 @@
     "browser": "chrome",
     "screenshot_dir": "screenshots",
     "influxdb": {
-      "version" : "2.0.0"
+      "version" : "2.0.2"
     },
     "window_size": {
       "width": "1024",
@@ -39,7 +39,7 @@
     "influx_path": "../bin/linux/influx",
     "docker_name": "influx2_solo",
     "influxdb": {
-      "version" : "2.0.0"
+      "version" : "2.0.2"
     },
     "default_user": {
       "username": "hibou",
@@ -60,7 +60,7 @@
     "browser": "chrome",
     "screenshot_dir": "screenshots",
     "influxdb": {
-      "version" : "2.0.0"
+      "version" : "2.0.2"
     },
     "window_size": {
       "width": "1024",
