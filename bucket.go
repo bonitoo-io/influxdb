@@ -39,6 +39,12 @@ type Bucket struct {
 	CRUDLog
 }
 
+// Clone returns a shallow copy of b.
+func (b *Bucket) Clone() *Bucket {
+	other := *b
+	return &other
+}
+
 // BucketType differentiates system buckets from user buckets.
 type BucketType int
 
@@ -117,7 +123,7 @@ func (f BucketFilter) QueryParams() map[string][]string {
 	}
 
 	if f.Name != nil {
-		qp["name"] = []string{*f.Name}
+		qp["bucket"] = []string{*f.Name}
 	}
 
 	if f.OrganizationID != nil {

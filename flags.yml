@@ -31,9 +31,9 @@
 - name: Community Templates
   description: Replace current template uploading functionality with community driven templates
   key: communityTemplates
-  default: false
+  default: true
   expose: true
-  contact: Bucky, Johnny Steenbergen (Berg)
+  contact: Bucky
   lifetime: permanent
 
 - name: Frontend Example
@@ -43,24 +43,11 @@
   contact: Gavin Cabbage
   expose: true
 
-- name: Push Down Window Aggregate Mean
-  description: Enable Mean variant of PushDownWindowAggregateRule and PushDownBareAggregateRule
-  key: pushDownWindowAggregateMean
-  default: false
-  contact: Query Team
-
 - name: Group Window Aggregate Transpose
   description: Enables the GroupWindowAggregateTransposeRule for all enabled window aggregates
   key: groupWindowAggregateTranspose
   default: false
   contact: Query Team
-
-- name: New Auth Package
-  description: Enables the refactored authorization api
-  key: newAuth
-  default: false
-  contact: Alirie Gray
-  lifetime: temporaryc
 
 - name: New Label Package
   description: Enables the refactored labels api
@@ -97,13 +84,6 @@
   contact: Brett Buddin
   lifetime: temporary
 
-- name: Merged Filters Rule
-  description: Create one filter combining multiple single return statements
-  key: mergeFiltersRule
-  default: false
-  contact: Query Team
-  lifetime: temporary
-
 - name: Band Plot Type
   description: Enables the creation of a band plot in Dashboards
   key: bandPlotType
@@ -128,18 +108,6 @@
   lifetime: temporary
   expose: true
 
-- name: Push Down Group Aggregate Min Max
-  description: Enable the min and max variants of the PushDownGroupAggregate planner rule
-  key: pushDownGroupAggregateMinMax
-  default: false
-  contact: Query Team
-
-- name: Org Only Member list
-  description: Enforce only org members have access to view members of org related resorces
-  key: orgOnlyMemberList
-  default: false
-  contact: Compute Team
-
 - name: Inject Latest Success Time
   description: Inject the latest successful task run timestamp into a Task query extern when executing.
   key: injectLatestSuccessTime
@@ -151,3 +119,10 @@
   key: enforceOrgDashboardLimits
   default: false
   contact: Compute Team
+
+- name: Time Filter Flags
+  description: Filter task run list based on before and after flags
+  key: timeFilterFlags
+  contact: Compute Team
+  default: false
+  expose: true

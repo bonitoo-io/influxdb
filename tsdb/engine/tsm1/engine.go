@@ -39,9 +39,14 @@ import (
 	"go.uber.org/zap"
 )
 
+//go:generate -command tmpl go run github.com/benbjohnson/tmpl
 //go:generate tmpl -data=@iterator.gen.go.tmpldata iterator.gen.go.tmpl engine.gen.go.tmpl array_cursor.gen.go.tmpl array_cursor_iterator.gen.go.tmpl
-//go:generate go run ../../../_tools/tmpl/main.go -i -data=file_store.gen.go.tmpldata file_store.gen.go.tmpl=file_store.gen.go
-//go:generate go run ../../../_tools/tmpl/main.go -i -d isArray=y -data=file_store.gen.go.tmpldata file_store.gen.go.tmpl=file_store_array.gen.go
+// The file store generate uses a custom modified tmpl
+// to support adding templated data from the command line.
+// This can probably be worked into the upstream tmpl
+// but isn't at the moment.
+//go:generate go run ../../../tools/tmpl -i -data=file_store.gen.go.tmpldata file_store.gen.go.tmpl=file_store.gen.go
+//go:generate go run ../../../tools/tmpl -i -d isArray=y -data=file_store.gen.go.tmpldata file_store.gen.go.tmpl=file_store_array.gen.go
 //go:generate tmpl -data=@encoding.gen.go.tmpldata encoding.gen.go.tmpl
 //go:generate tmpl -data=@compact.gen.go.tmpldata compact.gen.go.tmpl
 //go:generate tmpl -data=@reader.gen.go.tmpldata reader.gen.go.tmpl
@@ -1194,15 +1199,7 @@ func (e *Engine) readFileFromBackup(tr *tar.Reader, shardRelativePath string, as
 		return "", nil
 	}
 
-	nativeFileName := filepath.FromSlash(hdr.Name)
-	// Skip file if it does not have a matching prefix.
-	if !strings.HasPrefix(nativeFileName, shardRelativePath) {
-		return "", nil
-	}
-	filename, err := filepath.Rel(shardRelativePath, nativeFileName)
-	if err != nil {
-		return "", err
-	}
+	filename := filepath.Base(filepath.FromSlash(hdr.Name))
 
 	// If this is a directory entry (usually just `index` for tsi), create it an move on.
 	if hdr.Typeflag == tar.TypeDir {
@@ -3048,7 +3045,7 @@ func (e *Engine) IteratorCost(measurement string, opt query.IteratorOptions) (qu
 }
 
 // Type returns FieldType for a series.  If the series does not
-// exist, ErrUnkownFieldType is returned.
+// exist, ErrUnknownFieldType is returned.
 func (e *Engine) Type(series []byte) (models.FieldType, error) {
 	if typ, err := e.Cache.Type(series); err == nil {
 		return typ, nil

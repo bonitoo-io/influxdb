@@ -355,7 +355,7 @@ func (data *Data) ShardGroupByTimestamp(database, policy string, timestamp time.
 }
 
 // CreateShardGroup creates a shard group on a database and policy for a given timestamp.
-func (data *Data) CreateShardGroup(database, policy string, timestamp time.Time) error {
+func (data *Data) CreateShardGroup(database, policy string, timestamp time.Time, shards ...ShardInfo) error {
 	// Find retention policy.
 	rpi, err := data.RetentionPolicy(database, policy)
 	if err != nil {
@@ -380,9 +380,19 @@ func (data *Data) CreateShardGroup(database, policy string, timestamp time.Time)
 		sgi.EndTime = time.Unix(0, models.MaxNanoTime+1)
 	}
 
-	data.MaxShardID++
-	sgi.Shards = []ShardInfo{
-		{ID: data.MaxShardID},
+	if len(shards) > 0 {
+		sgi.Shards = make([]ShardInfo, len(shards))
+		for i, si := range shards {
+			sgi.Shards[i] = si
+			if si.ID > data.MaxShardID {
+				data.MaxShardID = si.ID
+			}
+		}
+	} else {
+		data.MaxShardID++
+		sgi.Shards = []ShardInfo{
+			{ID: data.MaxShardID},
+		}
 	}
 
 	// Retention policy has a new shard group, so update the policy. Shard
@@ -984,6 +994,21 @@ func (di DatabaseInfo) clone() DatabaseInfo {
 	return other
 }
 
+// MarshalBinary encodes dbi to a binary format.
+func (dbi *DatabaseInfo) MarshalBinary() ([]byte, error) {
+	return proto.Marshal(dbi.marshal())
+}
+
+// UnmarshalBinary decodes dbi from a binary format.
+func (dbi *DatabaseInfo) UnmarshalBinary(data []byte) error {
+	var pb internal.DatabaseInfo
+	if err := proto.Unmarshal(data, &pb); err != nil {
+		return err
+	}
+	dbi.unmarshal(&pb)
+	return nil
+}
+
 // marshal serializes to a protobuf representation.
 func (di DatabaseInfo) marshal() *internal.DatabaseInfo {
 	pb := &internal.DatabaseInfo{}
@@ -1130,6 +1155,16 @@ func NewRetentionPolicyInfo(name string) *RetentionPolicyInfo {
 // with default name, replication, and duration.
 func DefaultRetentionPolicyInfo() *RetentionPolicyInfo {
 	return NewRetentionPolicyInfo(DefaultRetentionPolicyName)
+}
+
+// ToSpec returns RetentionPolicySpec instance with the same data as in RetentionPolicyInfo
+func (rpi *RetentionPolicyInfo) ToSpec() *RetentionPolicySpec {
+	return &RetentionPolicySpec{
+		Name:               rpi.Name,
+		ReplicaN:           &rpi.ReplicaN,
+		Duration:           &rpi.Duration,
+		ShardGroupDuration: rpi.ShardGroupDuration,
+	}
 }
 
 // Apply applies a specification to the retention policy info.

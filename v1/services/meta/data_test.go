@@ -74,7 +74,7 @@ func Test_Data_DropDatabase(t *testing.T) {
 func Test_Data_CreateDatabase(t *testing.T) {
 	data := meta.Data{}
 
-	// Test creating a database succeedes.
+	// Test creating a database succeeds.
 	if err := data.CreateDatabase("foo"); err != nil {
 		t.Fatal(err)
 	}
@@ -382,6 +382,33 @@ func TestShardGroupInfo_Contains(t *testing.T) {
 			assert.Equal(t, got, test.exp)
 		})
 	}
+}
+
+func TestRetentionPolicyInfo_ToSpec(t *testing.T) {
+	rp := &meta.RetentionPolicyInfo{
+		Name:               "bar",
+		ReplicaN:           1,
+		Duration:           24 * time.Hour,
+		ShardGroupDuration: time.Hour,
+	}
+	spec := rp.ToSpec()
+
+	if spec == nil {
+		t.Fatal("invalid spec")
+	} else if spec.Name != rp.Name {
+		t.Fatalf("invalid name: %s", spec.Name)
+	} else if spec.ReplicaN == nil {
+		t.Fatalf("invalid ReplicaN")
+	} else if *spec.ReplicaN != rp.ReplicaN {
+		t.Fatalf("invalid ReplicaN: %d", *spec.ReplicaN)
+	} else if spec.Duration == nil {
+		t.Fatalf("invalid Duration")
+	} else if *spec.Duration != rp.Duration {
+		t.Fatalf("invalid Duration: %s", spec.Duration.String())
+	} else if spec.ShardGroupDuration != rp.ShardGroupDuration {
+		t.Fatalf("invalid ShardGroupDuration: %s", spec.ShardGroupDuration.String())
+	}
+
 }
 
 func randString(n int) string {

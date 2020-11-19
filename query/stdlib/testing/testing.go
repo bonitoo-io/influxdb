@@ -92,10 +92,6 @@ var FluxEndToEndSkipList = map[string]map[string]string{
 
 		"holt_winters_panic": "Expected output is an empty table which breaks the testing framework (https://github.com/influxdata/influxdb/issues/14749)",
 		"map_nulls":          "to cannot write null values",
-
-		"range_stop": "pushed down range stop no longer exclusive https://github.com/influxdata/influxdb/issues/19564",
-
-		"to_time": "Flaky test https://github.com/influxdata/influxdb/issues/19577",
 	},
 	"experimental": {
 		"set":       "Reason TBD",
@@ -122,10 +118,8 @@ var FluxEndToEndSkipList = map[string]map[string]string{
 	"http": {
 		"http_endpoint": "need ability to test side effects in e2e tests: (https://github.com/influxdata/flux/issues/1723)",
 	},
-	"influxdata/influxdb/v1": {
-		"show_measurements": "flaky test (https://github.com/influxdata/influxdb/issues/15450)",
-		"show_tag_values":   "flaky test (https://github.com/influxdata/influxdb/issues/15450)",
-		"show_tag_keys":     "flaky test (https://github.com/influxdata/influxdb/issues/15450)",
+	"influxdata/influxdb/schema": {
+		"show_tag_keys": "failing due to bug in test, unskip this after upgrading from Flux v0.91.0",
 	},
 	"influxdata/influxdb/monitor": {
 		"state_changes_big_any_to_any":     "unbounded test",
@@ -143,9 +137,8 @@ var FluxEndToEndSkipList = map[string]map[string]string{
 		"join": "unbounded test",
 	},
 	"testing/chronograf": {
-		"buckets":                 "unbounded test",
-		"aggregate_window_count":  "flakey test: https://github.com/influxdata/influxdb/issues/18463",
-		"aggregate_window_median": "failing with \"field type conflict\": https://github.com/influxdata/influxdb/issues/19565",
+		"buckets":                "unbounded test",
+		"aggregate_window_count": "flakey test: https://github.com/influxdata/influxdb/issues/18463",
 	},
 	"testing/kapacitor": {
 		"fill_default": "unknown field type for f1",
@@ -167,20 +160,11 @@ var FluxEndToEndSkipList = map[string]map[string]string{
 		"cumulative_sum": "invalid test data requires loadStorage to be overridden. See https://github.com/influxdata/flux/issues/3145",
 		"elapsed":        "failing since split with Flux upgrade: https://github.com/influxdata/influxdb/issues/19568",
 	},
+	"contrib/RohanSreerama5/naiveBayesClassifier": {
+		"bayes": "error calling tableFind: ",
+	},
 }
 
 type PerTestFeatureFlagMap = map[string]map[string]map[string]string
 
-var FluxEndToEndFeatureFlags = PerTestFeatureFlagMap{
-	"planner": {
-		"bare_mean_push": {
-			"pushDownWindowAggregateMean": "true",
-		},
-		"window_mean_push": {
-			"pushDownWindowAggregateMean": "true",
-		},
-		"merge_filters": {
-			"mergeFilterRule": "true",
-		},
-	},
-}
+var FluxEndToEndFeatureFlags = PerTestFeatureFlagMap{}

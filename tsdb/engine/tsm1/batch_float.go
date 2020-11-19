@@ -10,7 +10,7 @@ import (
 )
 
 // FloatArrayEncodeAll encodes src into b, returning b and any error encountered.
-// The returned slice may be of a different length and capactity to b.
+// The returned slice may be of a different length and capacity to b.
 //
 // Currently only the float compression scheme used in Facebook's Gorilla is
 // supported, so this method implements a batch oriented version of that.
@@ -27,7 +27,7 @@ func FloatArrayEncodeAll(src []float64, b []byte) ([]byte, error) {
 	if len(src) > 0 && math.IsNaN(src[0]) {
 		return nil, fmt.Errorf("unsupported value: NaN")
 	} else if len(src) == 0 {
-		first = math.NaN() // Write sentinal value to terminate batch.
+		first = math.NaN() // Write sentinel value to terminate batch.
 		finished = true
 	} else {
 		first = src[0]
@@ -53,7 +53,7 @@ func FloatArrayEncodeAll(src []float64, b []byte) ([]byte, error) {
 			x = src[i]
 			sum += x
 		} else {
-			// Encode sentinal value to terminate batch
+			// Encode sentinel value to terminate batch
 			x = math.NaN()
 			finished = true
 		}
@@ -106,7 +106,7 @@ func FloatArrayEncodeAll(src []float64, b []byte) ([]byte, error) {
 				}
 
 				// Full value to write.
-				v := (vDelta >> prevTrailing) << (64 - l) // l least signifciant bits of v.
+				v := (vDelta >> prevTrailing) << (64 - l) // l least significant bits of v.
 
 				var m = n & 7 // Current bit in current byte.
 				var written uint64

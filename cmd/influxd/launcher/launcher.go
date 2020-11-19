@@ -22,15 +22,17 @@ import (
 	"github.com/influxdata/influxdb/v2/bolt"
 	"github.com/influxdata/influxdb/v2/checks"
 	"github.com/influxdata/influxdb/v2/chronograf/server"
-	"github.com/influxdata/influxdb/v2/cmd/influxd/inspect"
+	"github.com/influxdata/influxdb/v2/dashboards"
+	dashboardTransport "github.com/influxdata/influxdb/v2/dashboards/transport"
 	"github.com/influxdata/influxdb/v2/dbrp"
-	"github.com/influxdata/influxdb/v2/endpoints"
+	"github.com/influxdata/influxdb/v2/fluxinit"
 	"github.com/influxdata/influxdb/v2/gather"
 	"github.com/influxdata/influxdb/v2/http"
 	iqlcontrol "github.com/influxdata/influxdb/v2/influxql/control"
 	iqlquery "github.com/influxdata/influxdb/v2/influxql/query"
 	"github.com/influxdata/influxdb/v2/inmem"
 	"github.com/influxdata/influxdb/v2/internal/fs"
+	"github.com/influxdata/influxdb/v2/internal/resource"
 	"github.com/influxdata/influxdb/v2/kit/cli"
 	"github.com/influxdata/influxdb/v2/kit/feature"
 	overrideflagger "github.com/influxdata/influxdb/v2/kit/feature/override"
@@ -45,6 +47,8 @@ import (
 	"github.com/influxdata/influxdb/v2/label"
 	influxlogger "github.com/influxdata/influxdb/v2/logger"
 	"github.com/influxdata/influxdb/v2/nats"
+	endpointservice "github.com/influxdata/influxdb/v2/notification/endpoint/service"
+	ruleservice "github.com/influxdata/influxdb/v2/notification/rule/service"
 	"github.com/influxdata/influxdb/v2/pkger"
 	infprom "github.com/influxdata/influxdb/v2/prometheus"
 	"github.com/influxdata/influxdb/v2/query"
@@ -63,10 +67,12 @@ import (
 	"github.com/influxdata/influxdb/v2/task/backend/executor"
 	"github.com/influxdata/influxdb/v2/task/backend/middleware"
 	"github.com/influxdata/influxdb/v2/task/backend/scheduler"
+	telegrafservice "github.com/influxdata/influxdb/v2/telegraf/service"
 	"github.com/influxdata/influxdb/v2/telemetry"
 	"github.com/influxdata/influxdb/v2/tenant"
 	_ "github.com/influxdata/influxdb/v2/tsdb/engine/tsm1" // needed for tsm1
 	_ "github.com/influxdata/influxdb/v2/tsdb/index/tsi1"  // needed for tsi1
+	authv1 "github.com/influxdata/influxdb/v2/v1/authorization"
 	iqlcoordinator "github.com/influxdata/influxdb/v2/v1/coordinator"
 	"github.com/influxdata/influxdb/v2/v1/services/meta"
 	storage2 "github.com/influxdata/influxdb/v2/v1/services/storage"
@@ -75,6 +81,7 @@ import (
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	jaegerconfig "github.com/uber/jaeger-client-go/config"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -94,8 +101,8 @@ const (
 	MaxInt = 1<<uint(strconv.IntSize-1) - 1
 )
 
-func NewInfluxdCommand(ctx context.Context, subCommands ...*cobra.Command) *cobra.Command {
-	l := NewLauncher()
+func NewInfluxdCommand(ctx context.Context, v *viper.Viper) *cobra.Command {
+	l := NewLauncher(WithViper(v))
 
 	prog := cli.Program{
 		Name: "influxd",
@@ -114,25 +121,28 @@ func NewInfluxdCommand(ctx context.Context, subCommands ...*cobra.Command) *cobr
 
 	A config file can be provided via the INFLUXD_CONFIG_PATH env var. If a file is
 	not provided via an env var, influxd will look in the current directory for a
-	config.yaml file. If one does not exist, then it will continue unchanged.`
+	config.{json|toml|yaml|yml} file. If one does not exist, then it will continue unchanged.`
 	}
 
-	cmd := cli.NewCommand(&prog)
+	cmd := cli.NewCommand(l.Viper, &prog)
 	runCmd := &cobra.Command{
 		Use:  "run",
 		RunE: cmd.RunE,
+		Args: cobra.NoArgs,
 	}
 	for _, c := range []*cobra.Command{cmd, runCmd} {
 		assignDescs(c)
 		setLauncherCMDOpts(l, c)
 	}
-	cmd.AddCommand(append(subCommands, runCmd)...)
+	cmd.AddCommand(runCmd)
 
 	return cmd
 }
 
 func cmdRunE(ctx context.Context, l *Launcher) func() error {
 	return func() error {
+		fluxinit.FluxInit()
+
 		// exit with SIGINT and SIGTERM
 		ctx = signals.WithStandardSignals(ctx)
 
@@ -168,8 +178,7 @@ func cmdRunE(ctx context.Context, l *Launcher) func() error {
 var vaultConfig vault.Config
 
 func setLauncherCMDOpts(l *Launcher, cmd *cobra.Command) {
-	cli.BindOptions(cmd, launcherOpts(l))
-	cmd.AddCommand(inspect.NewCommand())
+	cli.BindOptions(l.Viper, cmd, launcherOpts(l))
 }
 
 func launcherOpts(l *Launcher) []cli.Opt {
@@ -533,10 +542,14 @@ type Launcher struct {
 	log                *zap.Logger
 	reg                *prom.Registry
 
+	opts []Option
+
 	Stdin      io.Reader
 	Stdout     io.Writer
 	Stderr     io.Writer
 	apibackend *http.APIBackend
+
+	Viper *viper.Viper
 }
 
 type stoppingScheduler interface {
@@ -545,13 +558,24 @@ type stoppingScheduler interface {
 }
 
 // NewLauncher returns a new instance of Launcher connected to standard in/out/err.
-func NewLauncher() *Launcher {
-	return &Launcher{
+func NewLauncher(opts ...Option) *Launcher {
+	l := &Launcher{
+		opts:          opts,
 		Stdin:         os.Stdin,
 		Stdout:        os.Stdout,
 		Stderr:        os.Stderr,
 		StorageConfig: storage.NewConfig(),
 	}
+
+	for _, opt := range opts {
+		opt.applyInit(l)
+	}
+
+	if l.Viper == nil {
+		l.Viper = viper.New()
+	}
+
+	return l
 }
 
 // Running returns true if the main Launcher has started running.
@@ -653,19 +677,25 @@ func (m *Launcher) run(ctx context.Context) (err error) {
 	m.running = true
 	ctx, m.cancel = context.WithCancel(ctx)
 
-	var lvl zapcore.Level
-	if err := lvl.Set(m.logLevel); err != nil {
+	for _, opt := range m.opts {
+		opt.applyConfig(m)
+	}
+
+	var logLevel zapcore.Level
+	if err := logLevel.Set(m.logLevel); err != nil {
 		return fmt.Errorf("unknown log level; supported levels are debug, info, and error")
 	}
 
-	// Create top level logger
-	logconf := &influxlogger.Config{
-		Format: "auto",
-		Level:  lvl,
-	}
-	m.log, err = logconf.New(m.Stdout)
-	if err != nil {
-		return err
+	if m.log == nil {
+		// Create top level logger
+		logconf := &influxlogger.Config{
+			Format: "auto",
+			Level:  logLevel,
+		}
+		m.log, err = logconf.New(m.Stdout)
+		if err != nil {
+			return err
+		}
 	}
 
 	info := platform.GetBuildInfo()
@@ -705,28 +735,23 @@ func (m *Launcher) run(ctx context.Context) (err error) {
 		return err
 	}
 
-	serviceConfig := kv.ServiceConfig{
-		SessionLength:       time.Duration(m.sessionLength) * time.Minute,
-		FluxLanguageService: fluxlang.DefaultService,
-	}
-
-	flushers := flushers{}
+	var flushers flushers
 	switch m.storeType {
 	case BoltStore:
 		store := bolt.NewKVStore(m.log.With(zap.String("service", "kvstore-bolt")), m.boltPath)
 		store.WithDB(m.boltClient.DB())
 		m.kvStore = store
-		m.kvService = kv.NewService(m.log.With(zap.String("store", "kv")), store, serviceConfig)
 		if m.testing {
 			flushers = append(flushers, store)
 		}
+
 	case MemoryStore:
 		store := inmem.NewKVStore()
 		m.kvStore = store
-		m.kvService = kv.NewService(m.log.With(zap.String("store", "kv")), store, serviceConfig)
 		if m.testing {
 			flushers = append(flushers, store)
 		}
+
 	default:
 		err := fmt.Errorf("unknown store type %s; expected bolt or memory", m.storeType)
 		m.log.Error("Failed opening bolt", zap.Error(err))
@@ -756,23 +781,36 @@ func (m *Launcher) run(ctx context.Context) (err error) {
 	)
 	m.reg.MustRegister(m.boltClient)
 
-	var (
-		authSvc                   platform.AuthorizationService            = m.kvService
-		variableSvc               platform.VariableService                 = m.kvService
-		sourceSvc                 platform.SourceService                   = m.kvService
-		dashboardSvc              platform.DashboardService                = m.kvService
-		dashboardLogSvc           platform.DashboardOperationLogService    = m.kvService
-		userLogSvc                platform.UserOperationLogService         = m.kvService
-		bucketLogSvc              platform.BucketOperationLogService       = m.kvService
-		orgLogSvc                 platform.OrganizationOperationLogService = m.kvService
-		scraperTargetSvc          platform.ScraperTargetStoreService       = m.kvService
-		telegrafSvc               platform.TelegrafConfigStore             = m.kvService
-		lookupSvc                 platform.LookupService                   = m.kvService
-		notificationEndpointStore platform.NotificationEndpointService     = m.kvService
-	)
-
 	tenantStore := tenant.NewStore(m.kvStore)
 	ts := tenant.NewSystem(tenantStore, m.log.With(zap.String("store", "new")), m.reg, metric.WithSuffix("new"))
+
+	serviceConfig := kv.ServiceConfig{
+		FluxLanguageService: fluxlang.DefaultService,
+	}
+
+	m.kvService = kv.NewService(m.log.With(zap.String("store", "kv")), m.kvStore, ts, serviceConfig)
+
+	var (
+		opLogSvc                                              = tenant.NewOpLogService(m.kvStore, m.kvService)
+		userLogSvc   platform.UserOperationLogService         = opLogSvc
+		bucketLogSvc platform.BucketOperationLogService       = opLogSvc
+		orgLogSvc    platform.OrganizationOperationLogService = opLogSvc
+	)
+	var (
+		variableSvc      platform.VariableService           = m.kvService
+		sourceSvc        platform.SourceService             = m.kvService
+		scraperTargetSvc platform.ScraperTargetStoreService = m.kvService
+	)
+
+	var authSvc platform.AuthorizationService
+	{
+		authStore, err := authorization.NewStore(m.kvStore)
+		if err != nil {
+			m.log.Error("Failed creating new authorization store", zap.Error(err))
+			return err
+		}
+		authSvc = authorization.NewService(authStore, ts)
+	}
 
 	secretStore, err := secret.NewStore(m.kvStore)
 	if err != nil {
@@ -841,9 +879,10 @@ func (m *Launcher) run(ctx context.Context) (err error) {
 	m.reg.MustRegister(m.engine.PrometheusCollectors()...)
 
 	var (
-		deleteService platform.DeleteService = m.engine
-		pointsWriter  storage.PointsWriter   = m.engine
-		backupService platform.BackupService = m.engine
+		deleteService  platform.DeleteService  = m.engine
+		pointsWriter   storage.PointsWriter    = m.engine
+		backupService  platform.BackupService  = m.engine
+		restoreService platform.RestoreService = m.engine
 	)
 
 	deps, err := influxdb.NewDependencies(
@@ -879,7 +918,14 @@ func (m *Launcher) run(ctx context.Context) (err error) {
 	var taskSvc platform.TaskService
 	{
 		// create the task stack
-		combinedTaskService := taskbackend.NewAnalyticalStorage(m.log.With(zap.String("service", "task-analytical-store")), m.kvService, m.kvService, m.kvService, pointsWriter, query.QueryServiceBridge{AsyncQueryService: m.queryController})
+		combinedTaskService := taskbackend.NewAnalyticalStorage(
+			m.log.With(zap.String("service", "task-analytical-store")),
+			m.kvService,
+			ts.BucketService,
+			m.kvService,
+			pointsWriter,
+			query.QueryServiceBridge{AsyncQueryService: m.queryController},
+		)
 
 		executor, executorMetrics := executor.NewExecutor(
 			m.log.With(zap.String("service", "task-executor")),
@@ -940,8 +986,7 @@ func (m *Launcher) run(ctx context.Context) (err error) {
 		}
 	}
 
-	dbrpSvc := dbrp.NewService(ctx, authorizer.NewBucketService(ts.BucketService), m.kvStore)
-	dbrpSvc = dbrp.NewAuthorizedService(dbrpSvc)
+	dbrpSvc := dbrp.NewAuthorizedService(dbrp.NewService(ctx, authorizer.NewBucketService(ts.BucketService), m.kvStore))
 
 	cm := iqlcontrol.NewControllerMetrics([]string{})
 	m.reg.MustRegister(cm.PrometheusCollectors()...)
@@ -973,60 +1018,42 @@ func (m *Launcher) run(ctx context.Context) (err error) {
 	var checkSvc platform.CheckService
 	{
 		coordinator := coordinator.NewCoordinator(m.log, m.scheduler, m.executor)
-		checkSvc = checks.NewService(m.log.With(zap.String("svc", "checks")), m.kvStore, m.kvService, m.kvService)
+		checkSvc = checks.NewService(m.log.With(zap.String("svc", "checks")), m.kvStore, ts.OrganizationService, m.kvService)
 		checkSvc = middleware.NewCheckService(checkSvc, m.kvService, coordinator)
+	}
+
+	var notificationEndpointSvc platform.NotificationEndpointService
+	{
+		notificationEndpointSvc = endpointservice.New(endpointservice.NewStore(m.kvStore), secretSvc)
 	}
 
 	var notificationRuleSvc platform.NotificationRuleStore
 	{
 		coordinator := coordinator.NewCoordinator(m.log, m.scheduler, m.executor)
-		notificationRuleSvc = middleware.NewNotificationRuleStore(m.kvService, m.kvService, coordinator)
+		notificationRuleSvc, err = ruleservice.New(m.log, m.kvStore, m.kvService, ts.OrganizationService, notificationEndpointSvc)
+		if err != nil {
+			return err
+		}
+
+		// tasks service notification middleware which keeps task service up to date
+		// with persisted changes to notification rules.
+		notificationRuleSvc = middleware.NewNotificationRuleStore(notificationRuleSvc, m.kvService, coordinator)
+	}
+
+	var telegrafSvc platform.TelegrafConfigStore
+	{
+		telegrafSvc = telegrafservice.New(m.kvStore)
 	}
 
 	// NATS streaming server
 	natsOpts := nats.NewDefaultServerOptions()
-
-	// Welcome to ghetto land. It doesn't seem possible to tell NATS to initialise
-	// a random port. In some integration-style tests, this launcher gets initialised
-	// multiple times, and sometimes the port from the previous instantiation is
-	// still open.
-	//
-	// This atrocity checks if the port is free, and if it's not, moves on to the
-	// next one. This best-effort approach may still fail occasionally when, for example,
-	// two tests race on isAddressPortAvailable.
-	var total int
-	for {
-		portAvailable, err := isAddressPortAvailable(natsOpts.Host, natsOpts.Port)
-		if err != nil {
-			return err
-		}
-		if portAvailable && natsOpts.Host == "" {
-			// Double-check localhost to accommodate tests
-			time.Sleep(100 * time.Millisecond)
-			portAvailable, err = isAddressPortAvailable("localhost", natsOpts.Port)
-			if err != nil {
-				return err
-			}
-		}
-		if portAvailable {
-			break
-		}
-
-		time.Sleep(100 * time.Millisecond)
-		natsOpts.Port++
-		total++
-		if total > 50 {
-			return errors.New("unable to find free port for Nats server")
-		}
-	}
+	natsOpts.Port = nats.RandomPort
 	m.natsServer = nats.NewServer(&natsOpts)
-	m.natsPort = natsOpts.Port
-
 	if err := m.natsServer.Open(); err != nil {
 		m.log.Error("Failed to start nats streaming server", zap.Error(err))
 		return err
 	}
-
+	m.natsPort = natsOpts.Port // updated with random port
 	publisher := nats.NewAsyncPublisher(m.log, fmt.Sprintf("nats-publisher-%d", m.natsPort), m.NatsURL())
 	if err := publisher.Open(); err != nil {
 		m.log.Error("Failed to connect to streaming server", zap.Error(err))
@@ -1095,11 +1122,10 @@ func (m *Launcher) run(ctx context.Context) (err error) {
 			m.log.Error("Failed creating new labels store", zap.Error(err))
 			return err
 		}
-		ls := label.NewService(labelsStore)
-		labelSvc = label.NewLabelController(m.flagger, m.kvService, ls)
+		labelSvc = label.NewService(labelsStore)
 	}
 
-	ts.BucketService = storage.NewBucketService(ts.BucketService, m.engine)
+	ts.BucketService = storage.NewBucketService(m.log, ts.BucketService, m.engine)
 	ts.BucketService = dbrp.NewBucketService(m.log, ts.BucketService, dbrpSvc)
 
 	var onboardOpts []tenant.OnboardServiceOptionFn
@@ -1111,6 +1137,58 @@ func (m *Launcher) run(ctx context.Context) (err error) {
 	onboardSvc = tenant.NewAuthedOnboardSvc(onboardSvc)                                               // with auth
 	onboardSvc = tenant.NewOnboardingMetrics(m.reg, onboardSvc, metric.WithSuffix("new"))             // with metrics
 	onboardSvc = tenant.NewOnboardingLogger(m.log.With(zap.String("handler", "onboard")), onboardSvc) // with logging
+
+	var (
+		authorizerV1 platform.AuthorizerV1
+		passwordV1   platform.PasswordsService
+		authSvcV1    *authv1.Service
+	)
+	{
+		authStore, err := authv1.NewStore(m.kvStore)
+		if err != nil {
+			m.log.Error("Failed creating new authorization store", zap.Error(err))
+			return err
+		}
+
+		authSvcV1 = authv1.NewService(authStore, ts)
+		passwordV1 = authv1.NewCachingPasswordsService(authSvcV1)
+
+		authorizerV1 = &authv1.Authorizer{
+			AuthV1:   authSvcV1,
+			AuthV2:   authSvc,
+			Comparer: passwordV1,
+			User:     ts,
+		}
+	}
+
+	var (
+		dashboardSvc    platform.DashboardService
+		dashboardLogSvc platform.DashboardOperationLogService
+	)
+	{
+		dashboardService := dashboards.NewService(m.kvStore, m.kvService)
+		dashboardSvc = dashboardService
+		dashboardLogSvc = dashboardService
+	}
+
+	// resourceResolver is a deprecated type which combines the lookups
+	// of multiple resources into one type, used to resolve the resources
+	// associated org ID or name . It is a stop-gap while we move this
+	// behaviour off of *kv.Service to aid in reducing the coupling on this type.
+	resourceResolver := &resource.Resolver{
+		AuthorizationFinder:        authSvc,
+		BucketFinder:               ts.BucketService,
+		OrganizationFinder:         ts.OrganizationService,
+		DashboardFinder:            dashboardSvc,
+		SourceFinder:               sourceSvc,
+		TaskFinder:                 taskSvc,
+		TelegrafConfigFinder:       telegrafSvc,
+		VariableFinder:             variableSvc,
+		TargetFinder:               scraperTargetSvc,
+		CheckFinder:                checkSvc,
+		NotificationEndpointFinder: notificationEndpointSvc,
+		NotificationRuleFinder:     notificationRuleSvc,
+	}
 
 	m.apibackend = &http.APIBackend{
 		AssetsPath:           m.assetsPath,
@@ -1126,8 +1204,9 @@ func (m *Launcher) run(ctx context.Context) (err error) {
 		},
 		DeleteService:        deleteService,
 		BackupService:        backupService,
-		KVBackupService:      m.kvService,
+		RestoreService:       restoreService,
 		AuthorizationService: authSvc,
+		AuthorizerV1:         authorizerV1,
 		AlgoWProxy:           &http.NoopProxyHandler{},
 		// Wrap the BucketService in a storage backed one that will ensure deleted buckets are removed from the storage engine.
 		BucketService:                   ts.BucketService,
@@ -1153,14 +1232,14 @@ func (m *Launcher) run(ctx context.Context) (err error) {
 		TaskService:                     taskSvc,
 		TelegrafService:                 telegrafSvc,
 		NotificationRuleStore:           notificationRuleSvc,
-		NotificationEndpointService:     endpoints.NewService(notificationEndpointStore, secretSvc, ts.UserResourceMappingService, ts.OrganizationService),
+		NotificationEndpointService:     notificationEndpointSvc,
 		CheckService:                    checkSvc,
 		ScraperTargetStoreService:       scraperTargetSvc,
 		ChronografService:               chronografSvc,
 		SecretService:                   secretSvc,
-		LookupService:                   lookupSvc,
+		LookupService:                   resourceResolver,
 		DocumentService:                 m.kvService,
-		OrgLookupService:                m.kvService,
+		OrgLookupService:                resourceResolver,
 		WriteEventRecorder:              infprom.NewEventRecorder("write"),
 		QueryEventRecorder:              infprom.NewEventRecorder("query"),
 		Flagger:                         m.flagger,
@@ -1183,7 +1262,7 @@ func (m *Launcher) run(ctx context.Context) (err error) {
 			pkger.WithBucketSVC(authorizer.NewBucketService(b.BucketService)),
 			pkger.WithCheckSVC(authorizer.NewCheckService(b.CheckService, authedUrmSVC, authedOrgSVC)),
 			pkger.WithDashboardSVC(authorizer.NewDashboardService(b.DashboardService)),
-			pkger.WithLabelSVC(authorizer.NewLabelServiceWithOrg(b.LabelService, b.OrgLookupService)),
+			pkger.WithLabelSVC(label.NewAuthedLabelService(labelSvc, b.OrgLookupService)),
 			pkger.WithNotificationEndpointSVC(authorizer.NewNotificationEndpointService(b.NotificationEndpointService, authedUrmSVC, authedOrgSVC)),
 			pkger.WithNotificationRuleSVC(authorizer.NewNotificationRuleStore(b.NotificationRuleStore, authedUrmSVC, authedOrgSVC)),
 			pkger.WithOrganizationService(authorizer.NewOrgService(b.OrganizationService)),
@@ -1214,12 +1293,9 @@ func (m *Launcher) run(ctx context.Context) (err error) {
 	onboardHTTPServer := tenant.NewHTTPOnboardHandler(m.log, onboardSvc)
 
 	// feature flagging for new labels service
-	var oldLabelHandler nethttp.Handler
 	var labelHandler *label.LabelHandler
 	{
 		b := m.apibackend
-		labelSvcWithOrg := authorizer.NewLabelServiceWithOrg(labelSvc, b.OrgLookupService)
-		oldLabelHandler = http.NewLabelHandler(m.log.With(zap.String("handler", "labels")), labelSvcWithOrg, kithttp.ErrorHandler(0))
 
 		labelSvc = label.NewAuthedLabelService(labelSvc, b.OrgLookupService)
 		labelSvc = label.NewLabelLogger(m.log.With(zap.String("handler", "labels")), labelSvc)
@@ -1228,26 +1304,28 @@ func (m *Launcher) run(ctx context.Context) (err error) {
 	}
 
 	// feature flagging for new authorization service
-	var authHTTPServer *kithttp.FeatureHandler
+	var authHTTPServer *authorization.AuthHandler
 	{
 		authLogger := m.log.With(zap.String("handler", "authorization"))
 
-		oldBackend := http.NewAuthorizationBackend(authLogger, m.apibackend)
-		oldBackend.AuthorizationService = authorizer.NewAuthorizationService(authSvc)
-		oldHandler := http.NewAuthorizationHandler(authLogger, oldBackend)
-
-		authStore, err := authorization.NewStore(m.kvStore)
-		if err != nil {
-			m.log.Error("Failed creating new authorization store", zap.Error(err))
-			return err
-		}
-		authService := authorization.NewService(authStore, ts)
-		authService = authorization.NewAuthedAuthorizationService(authService, ts)
+		var authService platform.AuthorizationService
+		authService = authorization.NewAuthedAuthorizationService(authSvc, ts)
 		authService = authorization.NewAuthMetrics(m.reg, authService)
 		authService = authorization.NewAuthLogger(authLogger, authService)
 
-		newHandler := authorization.NewHTTPAuthHandler(m.log, authService, ts)
-		authHTTPServer = kithttp.NewFeatureHandler(feature.NewAuthPackage(), m.flagger, oldHandler, newHandler, newHandler.Prefix())
+		authHTTPServer = authorization.NewHTTPAuthHandler(m.log, authService, ts)
+	}
+
+	var v1AuthHTTPServer *authv1.AuthHandler
+	{
+		authLogger := m.log.With(zap.String("handler", "v1_authorization"))
+
+		var authService platform.AuthorizationService
+		authService = authorization.NewAuthedAuthorizationService(authSvcV1, ts)
+		authService = authorization.NewAuthLogger(authLogger, authService)
+
+		passService := authv1.NewAuthedPasswordService(authv1.AuthFinder(authSvcV1), passwordV1)
+		v1AuthHTTPServer = authv1.NewHTTPAuthHandler(m.log, authService, passService, ts)
 	}
 
 	var sessionHTTPServer *session.SessionHandler
@@ -1259,19 +1337,48 @@ func (m *Launcher) run(ctx context.Context) (err error) {
 
 	bucketHTTPServer := ts.NewBucketHTTPHandler(m.log, labelSvc)
 
+	var dashboardServer *dashboardTransport.DashboardHandler
+	{
+		urmHandler := tenant.NewURMHandler(
+			m.log.With(zap.String("handler", "urm")),
+			platform.DashboardsResourceType,
+			"id",
+			ts.UserService,
+			tenant.NewAuthedURMService(ts.OrganizationService, ts.UserResourceMappingService),
+		)
+
+		labelHandler := label.NewHTTPEmbeddedHandler(
+			m.log.With(zap.String("handler", "label")),
+			platform.DashboardsResourceType,
+			labelSvc,
+		)
+
+		dashboardServer = dashboardTransport.NewDashboardHandler(
+			m.log.With(zap.String("handler", "dashboards")),
+			authorizer.NewDashboardService(dashboardSvc),
+			labelSvc,
+			ts.UserService,
+			ts.OrganizationService,
+			urmHandler,
+			labelHandler,
+		)
+	}
+
 	{
 		platformHandler := http.NewPlatformHandler(m.apibackend,
 			http.WithResourceHandler(stacksHTTPServer),
 			http.WithResourceHandler(templatesHTTPServer),
 			http.WithResourceHandler(onboardHTTPServer),
 			http.WithResourceHandler(authHTTPServer),
-			http.WithResourceHandler(kithttp.NewFeatureHandler(feature.NewLabelPackage(), m.flagger, oldLabelHandler, labelHandler, labelHandler.Prefix())),
+			http.WithResourceHandler(labelHandler),
 			http.WithResourceHandler(sessionHTTPServer.SignInResourceHandler()),
 			http.WithResourceHandler(sessionHTTPServer.SignOutResourceHandler()),
 			http.WithResourceHandler(userHTTPServer.MeResourceHandler()),
 			http.WithResourceHandler(userHTTPServer.UserResourceHandler()),
 			http.WithResourceHandler(orgHTTPServer),
 			http.WithResourceHandler(bucketHTTPServer),
+			http.WithResourceHandler(v1AuthHTTPServer),
+			http.WithResourceHandler(dashboardServer),
 		)
 
 		httpLogger := m.log.With(zap.String("service", "http"))
@@ -1282,7 +1389,7 @@ func (m *Launcher) run(ctx context.Context) (err error) {
 			http.WithAPIHandler(platformHandler),
 		)
 
-		if logconf.Level == zap.DebugLevel {
+		if logLevel == zap.DebugLevel {
 			m.httpServer.Handler = http.LoggingMW(httpLogger)(m.httpServer.Handler)
 		}
 		// If we are in testing mode we allow all data to be flushed and removed.
@@ -1422,18 +1529,6 @@ func checkForPriorVersion(ctx context.Context, log *zap.Logger, boltPath string,
 	return nil
 }
 
-// isAddressPortAvailable checks whether the address:port is available to listen,
-// by using net.Listen to verify that the port opens successfully, then closes the listener.
-func isAddressPortAvailable(address string, port int) (bool, error) {
-	if l, err := net.Listen("tcp", fmt.Sprintf("%s:%d", address, port)); err == nil {
-		if err := l.Close(); err != nil {
-			return false, err
-		}
-		return true, nil
-	}
-	return false, nil
-}
-
 // OrganizationService returns the internal organization service.
 func (m *Launcher) OrganizationService() platform.OrganizationService {
 	return m.apibackend.OrganizationService
@@ -1479,7 +1574,20 @@ func (m *Launcher) TaskControlService() taskbackend.TaskControlService {
 	return m.taskControlService
 }
 
+// CheckService returns the internal check service.
+func (m *Launcher) CheckService() platform.CheckService {
+	return m.apibackend.CheckService
+}
+
 // KeyValueService returns the internal key-value service.
 func (m *Launcher) KeyValueService() *kv.Service {
 	return m.kvService
+}
+
+func (m *Launcher) DBRPMappingServiceV2() platform.DBRPMappingServiceV2 {
+	return m.apibackend.DBRPService
+}
+
+func (m *Launcher) SessionService() platform.SessionService {
+	return m.apibackend.SessionService
 }

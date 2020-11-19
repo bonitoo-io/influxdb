@@ -55,7 +55,7 @@ const (
 	prefixDelete = "/api/v2/delete"
 )
 
-// NewDeleteHandler creates a new handler at /api/v2/delete to recieve delete requests.
+// NewDeleteHandler creates a new handler at /api/v2/delete to receive delete requests.
 func NewDeleteHandler(log *zap.Logger, b *DeleteBackend) *DeleteHandler {
 	h := &DeleteHandler{
 		HTTPErrorHandler: b.HTTPErrorHandler,
@@ -114,24 +114,16 @@ func (h *DeleteHandler) handleDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// send delete points request to storage
-	err = h.DeleteService.DeleteBucketRangePredicate(ctx,
-		dr.Org.ID,
-		dr.Bucket.ID,
-		dr.Start,
-		dr.Stop,
-		dr.Predicate,
-	)
-	if err != nil {
-		h.HandleHTTPError(ctx, err, w)
-		return
-	}
+	h.HandleHTTPError(r.Context(), &influxdb.Error{
+		Code: influxdb.ENotImplemented,
+		Op:   "http/handleDelete",
+		Msg:  "Not implemented",
+	}, w)
+
 	h.log.Debug("Deleted",
 		zap.String("orgID", fmt.Sprint(dr.Org.ID.String())),
-		zap.String("buketID", fmt.Sprint(dr.Bucket.ID.String())),
+		zap.String("bucketID", fmt.Sprint(dr.Bucket.ID.String())),
 	)
-
-	w.WriteHeader(http.StatusNoContent)
 }
 
 func decodeDeleteRequest(ctx context.Context, r *http.Request, orgSvc influxdb.OrganizationService, bucketSvc influxdb.BucketService) (*deleteRequest, error) {

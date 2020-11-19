@@ -21,5 +21,13 @@ var Migrations = [...]migration.Spec{
 	Migration0006_DeleteBucketSessionsv1,
 	// CreateMetaDataBucket
 	Migration0007_CreateMetaDataBucket,
+	// LegacyAuthBuckets
+	Migration0008_LegacyAuthBuckets,
+	// LegacyAuthPasswordBuckets
+	Migration0009_LegacyAuthPasswordBuckets,
+	// add index telegraf by org
+	Migration0010_AddIndexTelegrafByOrg,
+	// populate dashboards owner id
+	Migration0011_PopulateDashboardsOwnerId,
 	// {{ do_not_edit . }}
 }

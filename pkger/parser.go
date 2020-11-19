@@ -21,6 +21,7 @@ import (
 	"github.com/influxdata/flux/parser"
 	"github.com/influxdata/influxdb/v2"
 	"github.com/influxdata/influxdb/v2/pkg/jsonnet"
+	"github.com/influxdata/influxdb/v2/task/options"
 	"gopkg.in/yaml.v3"
 )
 
@@ -860,7 +861,8 @@ func (p *Template) graphLabels() *parseErr {
 
 func (p *Template) graphChecks() *parseErr {
 	p.mChecks = make(map[string]*check)
-	tracker := p.trackNames(true)
+	// todo: what is the business goal wrt having unique names? (currently duplicates are allowed)
+	tracker := p.trackNames(false)
 
 	checkKinds := []struct {
 		kind      Kind
@@ -1460,7 +1462,15 @@ func (p *Template) parseChart(dashMetaName string, chartIdx int, r Resource) (*c
 		TimeFormat:                 r.stringShort(fieldChartTimeFormat),
 		Width:                      r.intShort(fieldChartWidth),
 		XCol:                       r.stringShort(fieldChartXCol),
+		GenerateXAxisTicks:         r.slcStr(fieldChartGenerateXAxisTicks),
+		XTotalTicks:                r.intShort(fieldChartXTotalTicks),
+		XTickStart:                 r.float64Short(fieldChartXTickStart),
+		XTickStep:                  r.float64Short(fieldChartXTickStep),
 		YCol:                       r.stringShort(fieldChartYCol),
+		GenerateYAxisTicks:         r.slcStr(fieldChartGenerateYAxisTicks),
+		YTotalTicks:                r.intShort(fieldChartYTotalTicks),
+		YTickStart:                 r.float64Short(fieldChartYTickStart),
+		YTickStep:                  r.float64Short(fieldChartYTickStep),
 		XPos:                       r.intShort(fieldChartXPos),
 		YPos:                       r.intShort(fieldChartYPos),
 		FillColumns:                r.slcStr(fieldChartFillColumns),
@@ -1468,6 +1478,7 @@ func (p *Template) parseChart(dashMetaName string, chartIdx int, r Resource) (*c
 		UpperColumn:                r.stringShort(fieldChartUpperColumn),
 		MainColumn:                 r.stringShort(fieldChartMainColumn),
 		LowerColumn:                r.stringShort(fieldChartLowerColumn),
+		LegendColorizeRows:         r.boolShort(fieldChartLegendColorizeRows),
 		LegendOpacity:              r.float64Short(fieldChartLegendOpacity),
 		LegendOrientationThreshold: r.intShort(fieldChartLegendOrientationThreshold),
 	}
@@ -1505,6 +1516,7 @@ func (p *Template) parseChart(dashMetaName string, chartIdx int, r Resource) (*c
 	} else {
 		for _, rc := range r.slcResource(fieldChartColors) {
 			c.Colors = append(c.Colors, &color{
+				ID:    rc.stringShort("id"),
 				Name:  rc.Name(),
 				Type:  rc.stringShort(fieldType),
 				Hex:   rc.stringShort(fieldColorHex),
@@ -1835,7 +1847,12 @@ func (r Resource) boolShort(key string) bool {
 }
 
 func (r Resource) duration(key string) (time.Duration, bool) {
-	dur, err := time.ParseDuration(r.stringShort(key))
+	astDur, err := options.ParseSignedDuration(r.stringShort(key))
+	if err != nil {
+		return time.Duration(0), false
+	}
+
+	dur, err := ast.DurationFrom(astDur, time.Time{})
 	return dur, err == nil
 }
 

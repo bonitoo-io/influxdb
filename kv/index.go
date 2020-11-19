@@ -222,7 +222,7 @@ func indexWalk(ctx context.Context, indexCursor ForwardCursor, sourceBucket Buck
 
 	for i, value := range values {
 		if value != nil {
-			if err := visit(keys[i], value); err != nil {
+			if cont, err := visit(keys[i], value); !cont || err != nil {
 				return err
 			}
 		}
@@ -240,7 +240,7 @@ type IndexDiff struct {
 	// MissingFromIndex is a map of foreign key to associated primary keys
 	// missing from the index given the source bucket.
 	// These items could be due to the fact an index populate migration has
-	// not yet occured, the index populate code is incorrect or the write path
+	// not yet occurred, the index populate code is incorrect or the write path
 	// for your resource type does not yet insert into the index as well (Create actions).
 	MissingFromIndex map[string]map[string]struct{}
 	// MissingFromSource is a map of foreign key to associated primary keys
@@ -390,9 +390,9 @@ func consumeBucket(ctx context.Context, store Store, fn func(tx Tx) (Bucket, err
 			return err
 		}
 
-		return WalkCursor(ctx, cursor, func(k, v []byte) error {
+		return WalkCursor(ctx, cursor, func(k, v []byte) (bool, error) {
 			kvs = append(kvs, [2][]byte{k, v})
-			return nil
+			return true, nil
 		})
 	})
 }

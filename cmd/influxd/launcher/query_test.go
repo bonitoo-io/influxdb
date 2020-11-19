@@ -753,12 +753,16 @@ from(bucket: "%s")
 	}
 }
 
-type TestQueryProfiler struct{
+type TestQueryProfiler struct {
 	start int64
 }
 
 func (s TestQueryProfiler) Name() string {
 	return fmt.Sprintf("query%d", s.start)
+}
+
+func (s TestQueryProfiler) GetSortedResult(q flux.Query, alloc *memory.Allocator, desc bool, sortKeys ...string) (flux.Table, error) {
+	return nil, nil
 }
 
 func (s TestQueryProfiler) GetResult(q flux.Query, alloc *memory.Allocator) (flux.Table, error) {
@@ -777,62 +781,62 @@ func (s TestQueryProfiler) GetResult(q flux.Query, alloc *memory.Allocator) (flu
 	colMeta := []flux.ColMeta{
 		{
 			Label: "_measurement",
-			Type: flux.TString,
+			Type:  flux.TString,
 		},
 		{
 			Label: "TotalDuration",
-			Type: flux.TInt,
+			Type:  flux.TInt,
 		},
 		{
 			Label: "CompileDuration",
-			Type: flux.TInt,
+			Type:  flux.TInt,
 		},
 		{
 			Label: "QueueDuration",
-			Type: flux.TInt,
+			Type:  flux.TInt,
 		},
 		{
 			Label: "PlanDuration",
-			Type: flux.TInt,
+			Type:  flux.TInt,
 		},
 		{
 			Label: "RequeueDuration",
-			Type: flux.TInt,
+			Type:  flux.TInt,
 		},
 		{
 			Label: "ExecuteDuration",
-			Type: flux.TInt,
+			Type:  flux.TInt,
 		},
 		{
 			Label: "Concurrency",
-			Type: flux.TInt,
+			Type:  flux.TInt,
 		},
 		{
 			Label: "MaxAllocated",
-			Type: flux.TInt,
+			Type:  flux.TInt,
 		},
 		{
 			Label: "TotalAllocated",
-			Type: flux.TInt,
+			Type:  flux.TInt,
 		},
 		{
 			Label: "RuntimeErrors",
-			Type: flux.TString,
+			Type:  flux.TString,
 		},
 		{
 			Label: "influxdb/scanned-bytes",
-			Type: flux.TInt,
+			Type:  flux.TInt,
 		},
 		{
 			Label: "influxdb/scanned-values",
-			Type: flux.TInt,
+			Type:  flux.TInt,
 		},
 		{
 			Label: "flux/query-plan",
-			Type: flux.TString,
+			Type:  flux.TString,
 		},
 	}
-	colData := []interface{} {
+	colData := []interface{}{
 		fmt.Sprintf("profiler/query%d", s.start),
 		s.start,
 		s.start + 1,
@@ -865,6 +869,14 @@ func (s TestQueryProfiler) GetResult(q flux.Query, alloc *memory.Allocator) (flu
 		return nil, err
 	}
 	return tbl, nil
+}
+
+func NewTestQueryProfiler0() execute.Profiler {
+	return &TestQueryProfiler{start: 0}
+}
+
+func NewTestQueryProfiler100() execute.Profiler {
+	return &TestQueryProfiler{start: 100}
 }
 
 func TestFluxProfiler(t *testing.T) {
@@ -903,7 +915,7 @@ error2","query plan",109,110
 `,
 		},
 	}
-	execute.RegisterProfilers(&TestQueryProfiler{}, &TestQueryProfiler{start: 100})
+	execute.RegisterProfilerFactories(NewTestQueryProfiler0, NewTestQueryProfiler100)
 	for _, tc := range testcases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
@@ -941,13 +953,13 @@ error2","query plan",109,110
 }
 
 func TestQueryPushDowns(t *testing.T) {
-	t.Skip("Not supported yet")
 	testcases := []struct {
 		name  string
 		data  []string
 		query string
 		op    string
 		want  string
+		skip  string
 	}{
 		{
 			name: "range last single point start time",
@@ -2171,6 +2183,7 @@ from(bucket: v.bucket)
 ,result,table,_time,_value
 ,,0,1970-01-01T00:00:00.00Z,0
 `,
+			skip: "https://github.com/influxdata/idpe/issues/8828",
 		},
 		{
 			name: "group none first",
@@ -2207,6 +2220,7 @@ from(bucket: v.bucket)
 ,result,table,_time,_value
 ,,0,1970-01-01T00:00:00.00Z,0
 `,
+			skip: "https://github.com/influxdata/idpe/issues/8828",
 		},
 		{
 			name: "group last",
@@ -2243,6 +2257,7 @@ from(bucket: v.bucket)
 ,result,table,_time,_value
 ,,0,1970-01-01T00:00:15.00Z,5
 `,
+			skip: "https://github.com/influxdata/idpe/issues/8828",
 		},
 		{
 			name: "group none last",
@@ -2279,6 +2294,7 @@ from(bucket: v.bucket)
 ,result,table,_time,_value
 ,,0,1970-01-01T00:00:15.00Z,5
 `,
+			skip: "https://github.com/influxdata/idpe/issues/8828",
 		},
 		{
 			name: "count group none",
@@ -2315,6 +2331,7 @@ from(bucket: v.bucket)
 ,result,table,_value
 ,,0,15
 `,
+			skip: "https://github.com/influxdata/idpe/issues/8828",
 		},
 		{
 			name: "count group",
@@ -2352,6 +2369,7 @@ from(bucket: v.bucket)
 ,,0,kk0,8
 ,,1,kk1,7
 `,
+			skip: "https://github.com/influxdata/idpe/issues/8828",
 		},
 		{
 			name: "sum group none",
@@ -2388,6 +2406,7 @@ from(bucket: v.bucket)
 ,result,table,_value
 ,,0,67
 `,
+			skip: "https://github.com/influxdata/idpe/issues/8828",
 		},
 		{
 			name: "sum group",
@@ -2425,6 +2444,7 @@ from(bucket: v.bucket)
 ,,0,kk0,32
 ,,1,kk1,35
 `,
+			skip: "https://github.com/influxdata/idpe/issues/8828",
 		},
 		{
 			name: "min group",
@@ -2462,6 +2482,7 @@ from(bucket: v.bucket)
 ,,0,kk0,0
 ,,1,kk1,1
 `,
+			skip: "https://github.com/influxdata/idpe/issues/8828",
 		},
 		{
 			name: "max group",
@@ -2499,15 +2520,16 @@ from(bucket: v.bucket)
 ,,0,kk0,9
 ,,1,kk1,8
 `,
+			skip: "https://github.com/influxdata/idpe/issues/8828",
 		},
 	}
 	for _, tc := range testcases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			l := launcher.RunTestLauncherOrFail(t, ctx, mock.NewFlagger(map[feature.Flag]interface{}{
-				feature.PushDownWindowAggregateMean():  true,
-				feature.PushDownGroupAggregateMinMax(): true,
-			}))
+			if tc.skip != "" {
+				t.Skip(tc.skip)
+			}
+			l := launcher.RunTestLauncherOrFail(t, ctx, mock.NewFlagger(map[feature.Flag]interface{}{}))
 
 			l.SetupOrFail(t)
 			defer l.ShutdownOrFail(t, ctx)

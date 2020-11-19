@@ -4,10 +4,10 @@ import (
 	"context"
 	"math"
 
-	bolt "github.com/coreos/bbolt"
 	"github.com/influxdata/influxdb/v2/chronograf"
 	"github.com/influxdata/influxdb/v2/chronograf/bolt/internal"
 	"github.com/influxdata/influxdb/v2/chronograf/roles"
+	bolt "go.etcd.io/bbolt"
 )
 
 // Ensure SourcesStore implements chronograf.SourcesStore.
@@ -214,7 +214,7 @@ func (s *SourcesStore) get(ctx context.Context, id int, tx *bolt.Tx) (chronograf
 }
 
 func (s *SourcesStore) update(ctx context.Context, src chronograf.Source, tx *bolt.Tx) error {
-	// Get an existing soource with the same ID.
+	// Get an existing source with the same ID.
 	b := tx.Bucket(SourcesBucket)
 	if v := b.Get(itob(src.ID)); v == nil {
 		return chronograf.ErrSourceNotFound

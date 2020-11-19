@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -67,11 +68,12 @@ type (
 		Resources    []StackResource
 	}
 
-	// StackResource is a record for an individual resource side effect genereated from
+	// StackResource is a record for an individual resource side effect generated from
 	// applying a template.
 	StackResource struct {
 		APIVersion   string
 		ID           influxdb.ID
+		Name         string
 		Kind         Kind
 		MetaName     string
 		Associations []StackResourceAssociation
@@ -631,6 +633,7 @@ func (s *Service) Export(ctx context.Context, setters ...ExportOptFn) (*Template
 				Kind:     r.Kind,
 				ID:       r.ID,
 				MetaName: r.MetaName,
+				Name:     r.Name,
 			}))
 		}
 
@@ -694,6 +697,7 @@ func (s *Service) cloneOrgBuckets(ctx context.Context, orgID influxdb.ID) ([]Res
 		resources = append(resources, ResourceToClone{
 			Kind: KindBucket,
 			ID:   b.ID,
+			Name: b.Name,
 		})
 	}
 	return resources, nil
@@ -712,6 +716,7 @@ func (s *Service) cloneOrgChecks(ctx context.Context, orgID influxdb.ID) ([]Reso
 		resources = append(resources, ResourceToClone{
 			Kind: KindCheck,
 			ID:   c.GetID(),
+			Name: c.GetName(),
 		})
 	}
 	return resources, nil
@@ -736,9 +741,11 @@ func (s *Service) cloneOrgDashboards(ctx context.Context, orgID influxdb.ID) ([]
 }
 
 func (s *Service) cloneOrgLabels(ctx context.Context, orgID influxdb.ID) ([]ResourceToClone, error) {
-	labels, err := s.labelSVC.FindLabels(ctx, influxdb.LabelFilter{
+	filter := influxdb.LabelFilter{
 		OrgID: &orgID,
-	}, influxdb.FindOptions{Limit: 10000})
+	}
+
+	labels, err := s.labelSVC.FindLabels(ctx, filter, influxdb.FindOptions{Limit: 100})
 	if err != nil {
 		return nil, ierrors.Wrap(err, "finding labels")
 	}
@@ -748,6 +755,7 @@ func (s *Service) cloneOrgLabels(ctx context.Context, orgID influxdb.ID) ([]Reso
 		resources = append(resources, ResourceToClone{
 			Kind: KindLabel,
 			ID:   l.ID,
+			Name: l.Name,
 		})
 	}
 	return resources, nil
@@ -766,6 +774,7 @@ func (s *Service) cloneOrgNotificationEndpoints(ctx context.Context, orgID influ
 		resources = append(resources, ResourceToClone{
 			Kind: KindNotificationEndpoint,
 			ID:   e.GetID(),
+			Name: e.GetName(),
 		})
 	}
 	return resources, nil
@@ -784,6 +793,7 @@ func (s *Service) cloneOrgNotificationRules(ctx context.Context, orgID influxdb.
 		resources = append(resources, ResourceToClone{
 			Kind: KindNotificationRule,
 			ID:   r.GetID(),
+			Name: r.GetName(),
 		})
 	}
 	return resources, nil
@@ -869,12 +879,15 @@ func (s *Service) cloneOrgVariables(ctx context.Context, orgID influxdb.ID) ([]R
 	return resources, nil
 }
 
-type cloneResFn func(context.Context, influxdb.ID) ([]ResourceToClone, error)
+type (
+	cloneResFn func(context.Context, influxdb.ID) ([]ResourceToClone, error)
+	resClone   struct {
+		resType influxdb.ResourceType
+		cloneFn cloneResFn
+	}
+)
 
-func (s *Service) filterOrgResourceKinds(resourceKindFilters []Kind) []struct {
-	resType influxdb.ResourceType
-	cloneFn cloneResFn
-} {
+func (s *Service) filterOrgResourceKinds(resourceKindFilters []Kind) []resClone {
 	mKinds := map[Kind]cloneResFn{
 		KindBucket:               s.cloneOrgBuckets,
 		KindCheck:                s.cloneOrgChecks,
@@ -887,23 +900,14 @@ func (s *Service) filterOrgResourceKinds(resourceKindFilters []Kind) []struct {
 		KindVariable:             s.cloneOrgVariables,
 	}
 
-	newResGen := func(resType influxdb.ResourceType, cloneFn cloneResFn) struct {
-		resType influxdb.ResourceType
-		cloneFn cloneResFn
-	} {
-		return struct {
-			resType influxdb.ResourceType
-			cloneFn cloneResFn
-		}{
+	newResGen := func(resType influxdb.ResourceType, cloneFn cloneResFn) resClone {
+		return resClone{
 			resType: resType,
 			cloneFn: cloneFn,
 		}
 	}
 
-	var resourceTypeGens []struct {
-		resType influxdb.ResourceType
-		cloneFn cloneResFn
-	}
+	var resourceTypeGens []resClone
 	if len(resourceKindFilters) == 0 {
 		for k, cloneFn := range mKinds {
 			resourceTypeGens = append(resourceTypeGens, newResGen(k.ResourceType(), cloneFn))
@@ -930,6 +934,24 @@ type ImpactSummary struct {
 	StackID influxdb.ID
 	Diff    Diff
 	Summary Summary
+}
+
+var reCommunityTemplatesValidAddr = regexp.MustCompile(`(?:https://raw.githubusercontent.com/influxdata/community-templates/master/)(?P<name>\w+)(?:/.*)`)
+
+func (i *ImpactSummary) communityName() string {
+	if len(i.Sources) == 0 {
+		return "custom"
+	}
+
+	// pull name `name` from community url https://raw.githubusercontent.com/influxdata/community-templates/master/name/name_template.yml
+	for j := range i.Sources {
+		finds := reCommunityTemplatesValidAddr.FindStringSubmatch(i.Sources[j])
+		if len(finds) == 2 {
+			return finds[1]
+		}
+	}
+
+	return "custom"
 }
 
 // DryRun provides a dry run of the template application. The template will be marked verified
@@ -3533,10 +3555,11 @@ func (r *rollbackCoordinator) runTilEnd(ctx context.Context, orgID, userID influ
 				defer cancel()
 
 				defer func() {
-					if recover() != nil {
+					if err := recover(); err != nil {
 						r.logger.Error(
 							"panic applying "+resource,
 							zap.String("stack_trace", fmt.Sprintf("%+v", stack.Trace())),
+							zap.Reflect("panic", err),
 						)
 						errStr.add(errMsg{
 							resource: resource,

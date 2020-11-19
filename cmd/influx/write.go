@@ -9,8 +9,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 
+	"github.com/fujiwara/shapeio"
 	platform "github.com/influxdata/influxdb/v2"
 	ihttp "github.com/influxdata/influxdb/v2/http"
 	"github.com/influxdata/influxdb/v2/kit/signals"
@@ -37,9 +40,11 @@ type writeFlagsType struct {
 	Debug                      bool
 	SkipRowOnError             bool
 	SkipHeader                 int
+	MaxLineLength              int
 	IgnoreDataTypeInColumnName bool
 	Encoding                   string
 	ErrorsFile                 string
+	RateLimit                  string
 }
 
 var writeFlags writeFlagsType
@@ -50,8 +55,8 @@ func cmdWrite(f *globalFlags, opt genericCLIOpts) *cobra.Command {
 	cmd.Short = "Write points to InfluxDB"
 	cmd.Long = `Write data to InfluxDB via stdin, or add an entire file specified with the -f flag`
 
-	f.registerFlags(cmd)
-	writeFlags.org.register(cmd, true)
+	f.registerFlags(opt.viper, cmd)
+	writeFlags.org.register(opt.viper, cmd, true)
 	opts := flagOpts{
 		{
 			DestP:      &writeFlags.BucketID,
@@ -76,7 +81,7 @@ func cmdWrite(f *globalFlags, opt genericCLIOpts) *cobra.Command {
 			Persistent: true,
 		},
 	}
-	opts.mustRegister(cmd)
+	opts.mustRegister(opt.viper, cmd)
 	cmd.PersistentFlags().StringVar(&writeFlags.Format, "format", "", "Input format, either lp (Line Protocol) or csv (Comma Separated Values). Defaults to lp unless '.csv' extension")
 	cmd.PersistentFlags().StringArrayVar(&writeFlags.Headers, "header", []string{}, "Header prepends lines to input data; Example --header HEADER1 --header HEADER2")
 	cmd.PersistentFlags().StringArrayVarP(&writeFlags.Files, "file", "f", []string{}, "The path to the file to import")
@@ -84,17 +89,19 @@ func cmdWrite(f *globalFlags, opt genericCLIOpts) *cobra.Command {
 	cmd.PersistentFlags().BoolVar(&writeFlags.Debug, "debug", false, "Log CSV columns to stderr before reading data rows")
 	cmd.PersistentFlags().BoolVar(&writeFlags.SkipRowOnError, "skipRowOnError", false, "Log CSV data errors to stderr and continue with CSV processing")
 	cmd.PersistentFlags().IntVar(&writeFlags.SkipHeader, "skipHeader", 0, "Skip the first <n> rows from input data")
+	cmd.PersistentFlags().IntVar(&writeFlags.MaxLineLength, "max-line-length", 16_000_000, "Specifies the maximum number of bytes that can be read for a single line")
 	cmd.Flag("skipHeader").NoOptDefVal = "1" // skipHeader flag value is optional, skip the first header when unspecified
 	cmd.PersistentFlags().BoolVar(&writeFlags.IgnoreDataTypeInColumnName, "xIgnoreDataTypeInColumnName", false, "Ignores dataType which could be specified after ':' in column name")
 	cmd.PersistentFlags().MarkHidden("xIgnoreDataTypeInColumnName") // should be used only upon explicit advice
 	cmd.PersistentFlags().StringVar(&writeFlags.Encoding, "encoding", "UTF-8", "Character encoding of input files or stdin")
 	cmd.PersistentFlags().StringVar(&writeFlags.ErrorsFile, "errors-file", "", "The path to the file to write rejected rows to")
+	cmd.PersistentFlags().StringVar(&writeFlags.RateLimit, "rate-limit", "", "Throttles write, examples: \"5 MB / 5 min\" , \"17kBs\". \"\" (default) disables throttling.")
 
 	cmdDryRun := opt.newCmd("dryrun", fluxWriteDryrunF, false)
 	cmdDryRun.Args = cobra.MaximumNArgs(1)
 	cmdDryRun.Short = "Write to stdout instead of InfluxDB"
 	cmdDryRun.Long = `Write protocol lines to stdout instead of InfluxDB. Troubleshoot conversion from CSV to line protocol.`
-	f.registerFlags(cmdDryRun)
+	f.registerFlags(opt.viper, cmdDryRun)
 	cmd.AddCommand(cmdDryRun)
 	return cmd
 }
@@ -240,6 +247,20 @@ func (writeFlags *writeFlagsType) createLineReader(ctx context.Context, cmd *cob
 		csvReader.RowSkipped = rowSkippedListener
 		r = csvReader
 	}
+	// throttle reader if requested
+	rateLimit, err := ToBytesPerSecond(writeFlags.RateLimit)
+	if err != nil {
+		return nil, csv2lp.MultiCloser(closers...), err
+	}
+	if rateLimit > 0.0 {
+		// LineReader ensures that original reader is consumed in the smallest possible
+		// units (at most one protocol line) to avoid bigger pauses in throttling
+		r = csv2lp.NewLineReader(r)
+		throttledReader := shapeio.NewReaderWithContext(r, ctx)
+		throttledReader.SetRateLimit(rateLimit)
+		r = throttledReader
+	}
+
 	return r, csv2lp.MultiCloser(closers...), nil
 }
 
@@ -258,12 +279,11 @@ func fluxWriteF(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid precision")
 	}
 
-	bs, err := newBucketService()
-	if err != nil {
-		return err
-	}
+	var (
+		filter platform.BucketFilter
+		err    error
+	)
 
-	var filter platform.BucketFilter
 	if writeFlags.BucketID != "" {
 		filter.ID, err = platform.IDFromString(writeFlags.BucketID)
 		if err != nil {
@@ -285,21 +305,6 @@ func fluxWriteF(cmd *cobra.Command, args []string) error {
 	}
 
 	ctx := signals.WithStandardSignals(context.Background())
-	buckets, n, err := bs.FindBuckets(ctx, filter)
-	if err != nil {
-		return fmt.Errorf("failed to retrieve buckets: %v", err)
-	}
-
-	if n == 0 {
-		if writeFlags.Bucket != "" {
-			return fmt.Errorf("bucket %q was not found", writeFlags.Bucket)
-		}
-
-		if writeFlags.BucketID != "" {
-			return fmt.Errorf("bucket with id %q does not exist", writeFlags.BucketID)
-		}
-	}
-	bucketID, orgID := buckets[0].ID, buckets[0].OrgID
 
 	// create line reader
 	r, closer, err := writeFlags.createLineReader(ctx, cmd, args)
@@ -319,8 +324,9 @@ func fluxWriteF(cmd *cobra.Command, args []string) error {
 			Precision:          writeFlags.Precision,
 			InsecureSkipVerify: flags.skipVerify,
 		},
+		MaxLineLength: writeFlags.MaxLineLength,
 	}
-	if err := s.Write(ctx, orgID, bucketID, r); err != nil && err != context.Canceled {
+	if err := s.WriteTo(ctx, filter, r); err != nil && err != context.Canceled {
 		return fmt.Errorf("failed to write data: %v", err)
 	}
 
@@ -357,4 +363,44 @@ func isCharacterDevice(reader io.Reader) bool {
 		return false
 	}
 	return (info.Mode() & os.ModeCharDevice) == os.ModeCharDevice
+}
+
+var rateLimitRegexp = regexp.MustCompile(`^(\d*\.?\d*)(B|kB|MB)/?(\d*)?(s|sec|m|min)$`)
+var bytesUnitMultiplier = map[string]float64{"B": 1, "kB": 1024, "MB": 1_048_576}
+var timeUnitMultiplier = map[string]float64{"s": 1, "sec": 1, "m": 60, "min": 60}
+
+// ToBytesPerSecond converts rate from string to number. The supplied string
+// value format must be COUNT(B|kB|MB)/TIME(s|sec|m|min) with / and TIME being optional.
+// All spaces are ignored, they can help with formatting. Examples: "5 MB / 5 min", 17kbs. 5.1MB5m.
+func ToBytesPerSecond(rateLimit string) (float64, error) {
+	// ignore all spaces
+	strVal := strings.ReplaceAll(rateLimit, " ", "")
+	if len(strVal) == 0 {
+		return 0, nil
+	}
+
+	matches := rateLimitRegexp.FindStringSubmatch(strVal)
+	if matches == nil {
+		return 0, fmt.Errorf("invalid rate limit %q: it does not match format COUNT(B|kB|MB)/TIME(s|sec|m|min) with / and TIME being optional, rexpexp: %v", strVal, rateLimitRegexp)
+	}
+	bytes, err := strconv.ParseFloat(matches[1], 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid rate limit %q: '%v' is not count of bytes: %v", strVal, matches[1], err)
+	}
+	bytes = bytes * bytesUnitMultiplier[matches[2]]
+	var time float64
+	if len(matches[3]) == 0 {
+		time = 1 // number is not specified, for example 5kbs or 1Mb/s
+	} else {
+		int64Val, err := strconv.ParseUint(matches[3], 10, 32)
+		if err != nil {
+			return 0, fmt.Errorf("invalid rate limit %q: time is out of range: %v", strVal, err)
+		}
+		if int64Val <= 0 {
+			return 0, fmt.Errorf("invalid rate limit %q: positive time expected but %v supplied", strVal, matches[3])
+		}
+		time = float64(int64Val)
+	}
+	time = time * timeUnitMultiplier[matches[4]]
+	return bytes / time, nil
 }

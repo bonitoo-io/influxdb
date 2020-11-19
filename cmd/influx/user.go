@@ -6,9 +6,11 @@ import (
 	"fmt"
 
 	"github.com/influxdata/influxdb/v2"
+	"github.com/influxdata/influxdb/v2/cmd/internal"
 	"github.com/influxdata/influxdb/v2/http"
+	"github.com/influxdata/influxdb/v2/tenant"
 	"github.com/spf13/cobra"
-	input "github.com/tcnksm/go-input"
+	"github.com/tcnksm/go-input"
 )
 
 type userSVCsFn func() (cmdUserDeps, error)
@@ -157,10 +159,10 @@ func (b *cmdUserBuilder) cmdCreate() *cobra.Command {
 			Required: true,
 		},
 	}
-	opts.mustRegister(cmd)
+	opts.mustRegister(b.viper, cmd)
 
 	cmd.Flags().StringVarP(&b.password, "password", "p", "", "The user password")
-	b.org.register(cmd, false)
+	b.org.register(b.viper, cmd, false)
 	b.registerPrintFlags(cmd)
 
 	return cmd
@@ -294,12 +296,12 @@ func (b *cmdUserBuilder) cmdDeleteRunEFn(cmd *cobra.Command, args []string) erro
 
 func (b *cmdUserBuilder) newCmd(use string, runE func(*cobra.Command, []string) error) *cobra.Command {
 	cmd := b.genericCLIOpts.newCmd(use, runE, true)
-	b.globalFlags.registerFlags(cmd)
+	b.globalFlags.registerFlags(b.viper, cmd)
 	return cmd
 }
 
 func (b *cmdUserBuilder) registerPrintFlags(cmd *cobra.Command) {
-	registerPrintOptions(cmd, &b.hideHeaders, &b.json)
+	registerPrintOptions(b.viper, cmd, &b.hideHeaders, &b.json)
 }
 
 func (b *cmdUserBuilder) printUser(opt userPrintOpts) error {
@@ -361,11 +363,11 @@ func newUserSVC() (cmdUserDeps, error) {
 	if err != nil {
 		return cmdUserDeps{}, err
 	}
-	userSvc := &http.UserService{Client: httpClient}
-	orgSvc := &http.OrganizationService{Client: httpClient}
-	passSvc := &http.PasswordService{Client: httpClient}
-	urmSvc := &http.UserResourceMappingService{Client: httpClient}
-	getPassFn := getPassword
+	userSvc := &tenant.UserClientService{Client: httpClient}
+	orgSvc := &tenant.OrgClientService{Client: httpClient}
+	passSvc := &tenant.PasswordClientService{Client: httpClient}
+	urmSvc := &tenant.UserResourceMappingClient{Client: httpClient}
+	getPassFn := internal.GetPassword
 
 	return cmdUserDeps{
 		userSVC:   userSvc,

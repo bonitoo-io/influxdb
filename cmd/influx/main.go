@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -21,7 +20,7 @@ import (
 	"github.com/influxdata/influxdb/v2/internal/fs"
 	"github.com/influxdata/influxdb/v2/kit/cli"
 	"github.com/influxdata/influxdb/v2/pkg/httpc"
-	"github.com/influxdata/influxdb/v2/task/options"
+	"github.com/influxdata/influxdb/v2/tenant"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -88,9 +87,10 @@ type (
 )
 
 type genericCLIOpts struct {
-	in   io.Reader
-	w    io.Writer
-	errW io.Writer
+	in    io.Reader
+	w     io.Writer
+	errW  io.Writer
+	viper *viper.Viper
 
 	json        bool
 	hideHeaders bool
@@ -129,7 +129,7 @@ func (o genericCLIOpts) newTabWriter() *internal.TabWriter {
 }
 
 func (o *genericCLIOpts) registerPrintOptions(cmd *cobra.Command) {
-	registerPrintOptions(cmd, &o.hideHeaders, &o.json)
+	registerPrintOptions(o.viper, cmd, &o.hideHeaders, &o.json)
 }
 
 func in(r io.Reader) genericCLIOptFn {
@@ -173,7 +173,7 @@ func (g *globalFlags) config() config.Config {
 	return g.configs.Active()
 }
 
-func (g *globalFlags) registerFlags(cmd *cobra.Command, skipFlags ...string) {
+func (g *globalFlags) registerFlags(v *viper.Viper, cmd *cobra.Command, skipFlags ...string) {
 	if g == nil {
 		panic("global flags are not set: <nil>")
 	}
@@ -222,7 +222,7 @@ func (g *globalFlags) registerFlags(cmd *cobra.Command, skipFlags ...string) {
 		filtered = append(filtered, o)
 	}
 
-	filtered.mustRegister(cmd)
+	filtered.mustRegister(v, cmd)
 
 	if skips["skip-verify"] {
 		return
@@ -246,6 +246,7 @@ func newInfluxCmdBuilder(optFns ...genericCLIOptFn) *cmdInfluxBuilder {
 		w:          os.Stdout,
 		errW:       os.Stderr,
 		runEWrapFn: checkSetupRunEMiddleware(&flags),
+		viper:      viper.New(),
 	}
 	for _, optFn := range optFns {
 		optFn(&opt)
@@ -258,7 +259,7 @@ func newInfluxCmdBuilder(optFns ...genericCLIOptFn) *cmdInfluxBuilder {
 func (b *cmdInfluxBuilder) cmd(childCmdFns ...func(f *globalFlags, opt genericCLIOpts) *cobra.Command) *cobra.Command {
 	b.once.Do(func() {
 		// enforce that viper options only ever get set once
-		setViperOptions()
+		setViperOptions(b.viper)
 	})
 
 	cmd := b.newCmd("influx", nil, false)
@@ -330,6 +331,7 @@ func influxCmd(opts ...genericCLIOptFn) *cobra.Command {
 		cmdOrganization,
 		cmdPing,
 		cmdQuery,
+		cmdRestore,
 		cmdSecret,
 		cmdSetup,
 		cmdStack,
@@ -340,6 +342,7 @@ func influxCmd(opts ...genericCLIOptFn) *cobra.Command {
 		cmdTranspile,
 		cmdUser,
 		cmdWrite,
+		cmdV1SubCommands,
 	)
 }
 
@@ -439,10 +442,12 @@ func writeConfigToPath(tok, org, path, dir string) error {
 }
 
 func checkSetup(host string, skipVerify bool) error {
-	s := &http.SetupService{
-		Addr:               host,
-		InsecureSkipVerify: skipVerify,
+	httpClient, err := newHTTPClient()
+	if err != nil {
+		return err
 	}
+
+	s := &tenant.OnboardClientService{Client: httpClient}
 
 	isOnboarding, err := s.IsOnboarding(context.Background())
 	if err != nil {
@@ -487,7 +492,7 @@ type organization struct {
 	id, name string
 }
 
-func (o *organization) register(cmd *cobra.Command, persistent bool) {
+func (o *organization) register(v *viper.Viper, cmd *cobra.Command, persistent bool) {
 	opts := flagOpts{
 		{
 			DestP:      &o.id,
@@ -503,7 +508,7 @@ func (o *organization) register(cmd *cobra.Command, persistent bool) {
 			Persistent: persistent,
 		},
 	}
-	opts.mustRegister(cmd)
+	opts.mustRegister(v, cmd)
 }
 
 func (o *organization) getID(orgSVC influxdb.OrganizationService) (influxdb.ID, error) {
@@ -549,7 +554,7 @@ func (o *organization) validOrgFlags(f *globalFlags) error {
 
 type flagOpts []cli.Opt
 
-func (f flagOpts) mustRegister(cmd *cobra.Command) {
+func (f flagOpts) mustRegister(v *viper.Viper, cmd *cobra.Command) {
 	if len(f) == 0 {
 		return
 	}
@@ -566,10 +571,10 @@ func (f flagOpts) mustRegister(cmd *cobra.Command) {
 			strings.ToUpper(strings.Replace(envVar, "-", "_", -1)),
 		)
 	}
-	cli.BindOptions(cmd, f)
+	cli.BindOptions(v, cmd, f)
 }
 
-func registerPrintOptions(cmd *cobra.Command, headersP, jsonOutP *bool) {
+func registerPrintOptions(v *viper.Viper, cmd *cobra.Command, headersP, jsonOutP *bool) {
 	var opts flagOpts
 	if headersP != nil {
 		opts = append(opts, cli.Opt{
@@ -589,75 +594,17 @@ func registerPrintOptions(cmd *cobra.Command, headersP, jsonOutP *bool) {
 			Default: false,
 		})
 	}
-	opts.mustRegister(cmd)
+	opts.mustRegister(v, cmd)
 }
 
-func setViperOptions() {
-	viper.SetEnvPrefix("INFLUX")
-	viper.AutomaticEnv()
-	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+func setViperOptions(v *viper.Viper) {
+	v.SetEnvPrefix("INFLUX")
+	v.AutomaticEnv()
+	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 }
 
 func writeJSON(w io.Writer, v interface{}) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "\t")
 	return enc.Encode(v)
-}
-
-func newBucketService() (influxdb.BucketService, error) {
-	client, err := newHTTPClient()
-	if err != nil {
-		return nil, err
-	}
-
-	return &http.BucketService{
-		Client: client,
-	}, nil
-}
-
-func rawDurationToTimeDuration(raw string) (time.Duration, error) {
-	if raw == "" {
-		return 0, nil
-	}
-
-	if dur, err := time.ParseDuration(raw); err == nil {
-		return dur, nil
-	}
-
-	retention, err := options.ParseSignedDuration(raw)
-	if err != nil {
-		return 0, err
-	}
-
-	const (
-		day  = 24 * time.Hour
-		week = 7 * day
-	)
-
-	var dur time.Duration
-	for _, d := range retention.Values {
-		if d.Magnitude < 0 {
-			return 0, errors.New("must be greater than 0")
-		}
-		mag := time.Duration(d.Magnitude)
-		switch d.Unit {
-		case "w":
-			dur += mag * week
-		case "d":
-			dur += mag * day
-		case "m":
-			dur += mag * time.Minute
-		case "s":
-			dur += mag * time.Second
-		case "ms":
-			dur += mag * time.Minute
-		case "us":
-			dur += mag * time.Microsecond
-		case "ns":
-			dur += mag * time.Nanosecond
-		default:
-			return 0, errors.New("duration must be week(w), day(d), hour(h), min(m), sec(s), millisec(ms), microsec(us), or nanosec(ns)")
-		}
-	}
-	return dur, nil
 }

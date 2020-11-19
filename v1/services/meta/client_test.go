@@ -419,7 +419,7 @@ func TestMetaClient_DefaultRetentionPolicy(t *testing.T) {
 
 	db := c.Database("db0")
 	if db == nil {
-		t.Fatal("datbase not found")
+		t.Fatal("database not found")
 	} else if db.Name != "db0" {
 		t.Fatalf("db name wrong: %s", db.Name)
 	}
@@ -635,7 +635,7 @@ func TestMetaClient_CreateUser(t *testing.T) {
 		t.Fatalf("failed to authenticate")
 	}
 
-	// Auth for unkonwn user should fail
+	// Auth for unknown user should fail
 	u, err = c.Authenticate("foo", "")
 	if u != nil || err != meta.ErrUserNotFound {
 		t.Fatalf("authentication should fail with %s", meta.ErrUserNotFound)
@@ -907,7 +907,7 @@ func TestMetaClient_Subscriptions_Drop(t *testing.T) {
 		t.Fatalf("got: %s, exp: %s", got, exp)
 	}
 
-	// DROP SUBSCRIPTION drops the subsciption if it can find it.
+	// DROP SUBSCRIPTION drops the subscription if it can find it.
 	err = c.DropSubscription("db0", "autogen", "sub0")
 	if got := err; got != nil {
 		t.Fatalf("got: %s, exp: %v", got, nil)
@@ -1100,6 +1100,58 @@ func TestMetaClient_PruneShardGroups(t *testing.T) {
 	}
 	if got, exp := len(rp.ShardGroups), 1; got != exp {
 		t.Fatalf("failed to prune shard group. got: %d, exp: %d", got, exp)
+	}
+}
+
+// Tests that calling CreateShardGroup for the same time range doesn't increment the data.Index
+func TestMetaClient_CreateShardGroupWithShards(t *testing.T) {
+	t.Parallel()
+
+	d, c := newClient()
+	defer d()
+	defer c.Close()
+
+	if _, err := c.CreateDatabase("db0"); err != nil {
+		t.Fatal(err)
+	}
+
+	shards := []meta.ShardInfo{
+		{1, []meta.ShardOwner{{1}}},
+		{3, nil},
+	}
+	// create a shard group.
+	tmin := time.Now()
+	sg, err := c.CreateShardGroupWithShards("db0", "autogen", tmin, shards)
+	if err != nil {
+		t.Fatal(err)
+	} else if sg == nil {
+		t.Fatalf("expected ShardGroup")
+	}
+
+	if c.Data().MaxShardID != 3 {
+		t.Log("MaxShardID is not 3: ", c.Data().MaxShardID)
+		t.Fail()
+	}
+	// Test pre-creating shard groups.
+	dur := sg.EndTime.Sub(sg.StartTime) + time.Nanosecond
+	tmax := tmin.Add(dur)
+	groups, err := c.ShardGroupsByTimeRange("db0", "autogen", tmin, tmax)
+	if err != nil {
+		t.Fatal(err)
+	} else if len(groups) != 1 {
+		t.Fatalf("wrong number of shard groups: %d", len(groups))
+	} else if len(groups[0].Shards) != 2 {
+		t.Fatalf("wrong number of shards: %d", len(groups[0].Shards))
+	} else if groups[0].Shards[0].ID != 1 {
+		t.Fatalf("wrong id of shard 0: %d", groups[0].Shards[0].ID)
+	} else if len(groups[0].Shards[0].Owners) != 1 {
+		t.Fatalf("wrong number of shard 0 owners: %d", len(groups[0].Shards[0].Owners))
+	} else if groups[0].Shards[0].Owners[0].NodeID != 1 {
+		t.Fatalf("wrong number of shard 0 owner 0 nodeID: %d", groups[0].Shards[0].Owners[0].NodeID)
+	} else if groups[0].Shards[1].ID != 3 {
+		t.Fatalf("wrong id of shard 1: %d", groups[0].Shards[1].ID)
+	} else if groups[0].Shards[1].Owners != nil {
+		t.Fatalf("wrong content of shard 1 owners: %v", groups[0].Shards[1].Owners)
 	}
 }
 

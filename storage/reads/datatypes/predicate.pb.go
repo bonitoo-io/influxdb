@@ -6,12 +6,11 @@ package datatypes
 import (
 	encoding_binary "encoding/binary"
 	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/gogo/protobuf/proto"
 	io "io"
 	math "math"
 	math_bits "math/bits"
-
-	_ "github.com/gogo/protobuf/gogoproto"
-	proto "github.com/gogo/protobuf/proto"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1332,7 +1331,7 @@ func skipPredicate(dAtA []byte) (n int, err error) {
 }
 
 var (
-	ErrInvalidLengthPredicate        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrInvalidLengthPredicate        = fmt.Errorf("proto: negative length found during unmarshalling")
 	ErrIntOverflowPredicate          = fmt.Errorf("proto: integer overflow")
 	ErrUnexpectedEndOfGroupPredicate = fmt.Errorf("proto: unexpected end of group")
 )
